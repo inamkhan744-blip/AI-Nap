@@ -60,6 +60,22 @@ class FashionRepository(private val context: Context) {
         return geminiService.evaluateItemSuitability(item, gender, heightFt, weightKg, bodyType, skinTone)
     }
 
+    suspend fun generateLookImage(
+        dress: FashionItem,
+        shoes: FashionItem,
+        hair: FashionItem,
+        jewellery: FashionItem,
+        gender: String,
+        heightFt: Float,
+        bodyType: String,
+        skinTone: String,
+        userPhotoUri: String?
+    ): Pair<String, Int> {
+        return geminiService.generateRealHDLookImage(
+            dress, shoes, hair, jewellery, gender, heightFt, bodyType, skinTone, userPhotoUri
+        )
+    }
+
     suspend fun evaluateCompleteLook(
         dress: FashionItem,
         shoes: FashionItem,

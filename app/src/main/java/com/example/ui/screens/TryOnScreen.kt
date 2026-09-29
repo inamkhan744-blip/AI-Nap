@@ -124,6 +124,23 @@ fun TryOnScreen(viewModel: FashionViewModel) {
             contentPadding = PaddingValues(vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // Category 1: Dress Live Try-On Split Preview
+            if (selectedCategory == FashionCategory.DRESS_TRY_ON) {
+                item {
+                    val activeDress = viewModel.selectedDress.collectAsState().value ?: items.firstOrNull()
+                    val photoUri = userProfile?.photoUri
+                    val sliderPos = viewModel.liveTryOnSliderPos.collectAsState().value
+                    TryOnLiveSplitPreviewCard(
+                        gender = gender,
+                        dress = activeDress,
+                        userHeightFt = height,
+                        photoUri = photoUri,
+                        sliderPos = sliderPos,
+                        onSliderChange = { viewModel.liveTryOnSliderPos.value = it }
+                    )
+                }
+            }
+
             // Category 4: Shoes Height Boost Visualizer
             if (selectedCategory == FashionCategory.SHOES) {
                 item {

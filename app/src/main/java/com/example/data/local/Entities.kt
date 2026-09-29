@@ -42,5 +42,7 @@ data class SavedLookEntity(
     val budgetRs: Int = 4500,
     val assignedDay: String? = null, // "Monday", "Tuesday", etc.
     val isFavorite: Boolean = false,
-    val hasVideo: Boolean = true
+    val hasVideo: Boolean = true,
+    val imagePath: String? = null,
+    val drawableResId: Int = 0
 )

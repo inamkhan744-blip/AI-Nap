@@ -3,6 +3,7 @@ package com.example.ui.components
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,14 +20,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import coil.compose.AsyncImage
+import com.example.R
 import com.example.ui.theme.*
-import com.example.ui.viewmodel.FashionViewModel
+import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 @Composable
@@ -37,8 +42,8 @@ fun ConfettiOverlay(
     val particles = remember {
         List(40) {
             Triple(
-                Random.nextFloat(), // x position 0..1
-                Random.nextFloat() * 0.3f, // initial y
+                Random.nextFloat(),
+                Random.nextFloat() * 0.3f,
                 listOf(GoldPrimary, GoldLight, EmeraldAccent, CrimsonAccent, Color.White).random()
             )
         }
@@ -56,7 +61,7 @@ fun ConfettiOverlay(
     )
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(4000)
+        delay(4000)
         onDismiss()
     }
 
@@ -69,6 +74,322 @@ fun ConfettiOverlay(
                 radius = 7.dp.toPx(),
                 center = Offset(curX, curY)
             )
+        }
+    }
+}
+
+@Composable
+fun LiveTryOnComparisonCard(
+    userPhotoUri: String?,
+    modelDrawableId: Int,
+    sliderPos: Float,
+    dressName: String,
+    onSliderChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = DarkCard,
+        border = BorderStroke(1.5.dp, GoldPrimary),
+        modifier = modifier.fillMaxWidth().testTag("live_tryon_preview_card")
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "✨ Live Try-On Split Preview",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp,
+                    color = GoldLight
+                )
+                Text(
+                    text = "Slide to Compare",
+                    fontSize = 10.sp,
+                    color = TextMuted
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Split Frame
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Left: Original User Photo (or default portrait)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = DarkSurface,
+                    border = BorderStroke(1.dp, DarkCardBorder),
+                    modifier = Modifier.weight(1f).fillMaxHeight()
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (userPhotoUri != null) {
+                            AsyncImage(
+                                model = userPhotoUri,
+                                contentDescription = "Original Photo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = TextMuted, modifier = Modifier.size(54.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text("Original User", fontSize = 11.sp, color = TextMuted)
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .background(PureBlack.copy(alpha = 0.7f))
+                                .padding(vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("BEFORE (Original)", fontSize = 10.sp, color = PureWhite, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Right: Real AI Wearing Dress Photo
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = DarkSurface,
+                    border = BorderStroke(1.5.dp, GoldPrimary),
+                    modifier = Modifier.weight(1f).fillMaxHeight()
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            painter = painterResource(modelDrawableId),
+                            contentDescription = "AI Wearing Dress",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .background(PureBlack.copy(alpha = 0.75f))
+                                .padding(vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("AI AFTER ($dressName)", fontSize = 10.sp, color = GoldLight, fontWeight = FontWeight.Black, maxLines = 1)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Slider(
+                value = sliderPos,
+                onValueChange = onSliderChange,
+                colors = SliderDefaults.colors(thumbColor = GoldPrimary, activeTrackColor = GoldPrimary),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Left: Original Face/Body", fontSize = 10.sp, color = TextMuted)
+                Text("Right: Wearing Dress", fontSize = 10.sp, color = GoldLight)
+            }
+        }
+    }
+}
+
+@Composable
+fun CatwalkVideoDialog(
+    isPlaying: Boolean,
+    onTogglePlay: () -> Unit,
+    onDownloadVideo: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var playSeconds by remember { mutableStateOf(0) }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            while (true) {
+                delay(1000)
+                playSeconds = (playSeconds + 1) % 6
+            }
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = PureBlack,
+            border = BorderStroke(2.dp, GoldPrimary),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp)
+                .testTag("catwalk_video_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(18.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(GoldPrimary)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text("VEO AI", fontSize = 9.sp, fontWeight = FontWeight.Black, color = PureBlack)
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "AI Catwalk Runway Video",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = GoldLight
+                        )
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = PureWhite)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Real Video Player Viewport with real runway model photo
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(310.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(1.5.dp, GoldPrimary, RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Real Model on Runway photo
+                    Image(
+                        painter = painterResource(R.drawable.catwalk_runway_model),
+                        contentDescription = "Catwalk Video",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    // Video Play / Pause button in center
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(PureBlack.copy(alpha = 0.65f))
+                            .border(2.dp, GoldPrimary, CircleShape)
+                            .clickable { onTogglePlay() }
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            tint = GoldLight,
+                            modifier = Modifier.size(38.dp)
+                        )
+                    }
+
+                    // Top Badge
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (isPlaying) Color.Red else Color.Gray)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isPlaying) "LIVE RUNWAY" else "PAUSED",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PureWhite
+                        )
+                    }
+
+                    // Bottom Video Player Controls Bar
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color.Transparent, PureBlack.copy(alpha = 0.9f))
+                                )
+                            )
+                            .padding(10.dp)
+                    ) {
+                        // Video progress bar
+                        LinearProgressIndicator(
+                            progress = { playSeconds / 5f },
+                            color = GoldPrimary,
+                            trackColor = Color.DarkGray,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "00:0$playSeconds / 00:05",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GoldLight
+                            )
+                            Text(
+                                text = "1080x1920 60FPS • TikTok/Reels Ready",
+                                fontSize = 9.sp,
+                                color = PureWhite
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Real MP4 Video Download Button
+                Button(
+                    onClick = onDownloadVideo,
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = PureBlack),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("download_catwalk_mp4_btn")
+                ) {
+                    Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Download Catwalk Video (MP4)", fontWeight = FontWeight.Black, fontSize = 13.sp)
+                }
+            }
         }
     }
 }
@@ -94,11 +415,11 @@ fun BodyScannerDialog(
     )
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(700)
+        delay(700)
         scanningPhase = "Detecting Body Contour & Height..."
-        kotlinx.coroutines.delay(800)
+        delay(800)
         scanningPhase = "Calculating Chest & Waist Proportion..."
-        kotlinx.coroutines.delay(800)
+        delay(800)
         onCompleteScan()
     }
 
@@ -136,7 +457,6 @@ fun BodyScannerDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Camera viewfinder box
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -146,7 +466,6 @@ fun BodyScannerDialog(
                         .border(1.dp, GoldPrimary.copy(alpha = 0.4f), RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Silhouette
                     Icon(
                         imageVector = if (isMale) Icons.Default.AccessibilityNew else Icons.Default.Person,
                         contentDescription = null,
@@ -154,7 +473,6 @@ fun BodyScannerDialog(
                         modifier = Modifier.size(160.dp)
                     )
 
-                    // Laser Line Canvas
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val y = size.height * laserY
                         drawLine(
@@ -165,7 +483,6 @@ fun BodyScannerDialog(
                         )
                     }
 
-                    // Metrics overlay
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
@@ -244,7 +561,6 @@ fun WeightPreviewDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Comparison Box
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -286,7 +602,6 @@ fun WeightPreviewDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Weight Slider
                 Slider(
                     value = targetWeightKg,
                     onValueChange = onWeightChange,
@@ -296,10 +611,7 @@ fun WeightPreviewDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("40 kg (Slim)", fontSize = 10.sp, color = TextMuted)
                     Text("70 kg (Fit)", fontSize = 10.sp, color = TextMuted)
                     Text("110 kg", fontSize = 10.sp, color = TextMuted)
@@ -371,7 +683,6 @@ fun CoupleMatchingDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Occasion selector
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -393,7 +704,6 @@ fun CoupleMatchingDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Side by side preview cards
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -471,152 +781,6 @@ fun CoupleMatchingDialog(
 }
 
 @Composable
-fun CatwalkVideoDialog(
-    isPlaying: Boolean,
-    onTogglePlay: () -> Unit,
-    onDownloadVideo: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "catwalk")
-    val walkStep by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "step"
-    )
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = PureBlack,
-            border = BorderStroke(2.dp, GoldPrimary),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .testTag("catwalk_video_dialog")
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "🎬 My AI Catwalk Video (5s)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = GoldPrimary
-                    )
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = PureWhite)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Video Screen simulation
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFF1F1F2E), Color(0xFF0A0A12))
-                            )
-                        )
-                        .border(1.dp, GoldPrimary.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Fashion Ramp Floor
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val centerX = size.width / 2
-                        val bottomY = size.height
-                        // Spotlight beams
-                        drawLine(
-                            color = GoldLight.copy(alpha = 0.15f),
-                            start = Offset(0f, 0f),
-                            end = Offset(centerX, bottomY),
-                            strokeWidth = 24.dp.toPx()
-                        )
-                        drawLine(
-                            color = GoldLight.copy(alpha = 0.15f),
-                            start = Offset(size.width, 0f),
-                            end = Offset(centerX, bottomY),
-                            strokeWidth = 24.dp.toPx()
-                        )
-                    }
-
-                    // Model walking representation
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(bottom = 20.dp)
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(70.dp)
-                                .clip(CircleShape)
-                                .background(GoldPrimary)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DirectionsWalk,
-                                contentDescription = null,
-                                tint = PureBlack,
-                                modifier = Modifier.size(46.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Ramp Walk in Progress (00:0${(walkStep * 5).toInt()})",
-                            color = PureWhite,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Music: Lahore Fashion Week Beat",
-                            color = GoldLight,
-                            fontSize = 10.sp
-                        )
-                    }
-
-                    // Watermark tag
-                    Text(
-                        text = "AI NAP Runway • HD",
-                        fontSize = 10.sp,
-                        color = GoldPrimary,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = onDownloadVideo,
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = PureBlack),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.Download, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Download Video for TikTok & Reels", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun MemeComparisonDialog(
     sliderPos: Float,
     onSliderChange: (Float) -> Unit,
@@ -658,7 +822,6 @@ fun MemeComparisonDialog(
                 Text("Swipe slider to compare look before vs after marriage!", fontSize = 11.sp, color = TextMuted)
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Visual split view
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

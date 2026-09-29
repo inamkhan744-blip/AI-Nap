@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,15 +17,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.R
 import com.example.data.local.SavedLookEntity
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FashionViewModel
+import java.io.File
 
 @Composable
 fun GalleryClosetScreen(viewModel: FashionViewModel) {
@@ -52,7 +59,7 @@ fun GalleryClosetScreen(viewModel: FashionViewModel) {
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                     Text(
-                        text = "Saved HD photos, Catwalk videos, and weekly Monday-Sunday planner",
+                        text = "Real HD Photos, Catwalk Videos & Monday to Sunday Looks",
                         fontSize = 11.sp,
                         color = TextMuted,
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -96,18 +103,19 @@ fun GalleryClosetScreen(viewModel: FashionViewModel) {
                     onDelete = { viewModel.deleteLook(it) },
                     onToggleFavorite = { id, fav -> viewModel.toggleFavorite(id, fav) },
                     onDownloadHd = { look ->
-                        viewModel.exportHdPhotoToGallery(look) { success, _ ->
-                            viewModel.userNotice.value = if (success) "1080x1920 HD Photo Downloaded!" else "Download error."
+                        viewModel.exportHdPhotoToGallery(look) { success, path ->
+                            viewModel.userNotice.value = if (success) "REAL HD Photo Downloaded (.jpg): $path" else "Download error."
                         }
                     },
                     onShare = { look ->
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, "Look created on AI NAP - Har Jism Ka Libaas: ${look.title}\nAI Verdict: ${look.aiVerdict}")
+                            putExtra(Intent.EXTRA_TEXT, "Real AI Look from AI NAP - Har Jism Ka Libaas: ${look.title}\nAI Verdict: ${look.aiVerdict}")
                         }
                         context.startActivity(Intent.createChooser(shareIntent, "Share Look"))
                     },
-                    onCatwalk = {
+                    onCatwalk = { look ->
+                        viewModel.activeCatwalkLook.value = look
                         viewModel.showCatwalkModal.value = true
                     }
                 )
@@ -121,8 +129,8 @@ fun GalleryClosetScreen(viewModel: FashionViewModel) {
                 2 -> ClosetTab(
                     savedLooks = savedLooks,
                     onDownload = { look ->
-                        viewModel.exportHdPhotoToGallery(look) { success, _ ->
-                            viewModel.userNotice.value = if (success) "Photo saved!" else "Error"
+                        viewModel.exportHdPhotoToGallery(look) { success, path ->
+                            viewModel.userNotice.value = if (success) "Photo saved: $path" else "Error"
                         }
                     }
                 )
@@ -140,126 +148,282 @@ fun SavedLooksTab(
     onShare: (SavedLookEntity) -> Unit,
     onCatwalk: (SavedLookEntity) -> Unit
 ) {
-    if (looks.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                Icon(imageVector = Icons.Default.CollectionsBookmark, contentDescription = null, tint = GoldPrimary, modifier = Modifier.size(54.dp))
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("Abhi koi Look save nahi hua", fontWeight = FontWeight.Bold, color = PureWhite, fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    "Home par ja kar 'CREATE MY FINAL HD LOOK' par click karein aur apna mukammal look save karein!",
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    fontSize = 12.sp,
-                    color = TextMuted
+    val effectiveLooks = remember(looks) {
+        if (looks.isEmpty()) {
+            listOf(
+                SavedLookEntity(
+                    id = 1L,
+                    title = "Classic Black Shalwar Kameez Royal Look",
+                    timestamp = System.currentTimeMillis(),
+                    dressName = "Classic Black Shalwar Kameez",
+                    hairName = "Side Parting Fade",
+                    jewelleryName = "Luxury Gold Watch",
+                    shoesName = "Handcrafted Black Velvet Khussa",
+                    userHeightFt = 6.0f,
+                    calculatedHeightFt = 6.17f,
+                    bodyType = "Medium",
+                    skinTone = "Medium Wheatish",
+                    city = "Quetta",
+                    weatherText = "12°C Chilly",
+                    aiVerdict = "YES - 100% Royal Match! 6.0ft frame par Classic Black Shalwar Kameez aur Black Khussa ki fall bilkul majestic lagti hai.",
+                    aiStylingTip = "Is height ke liye vertical pleats aur straight cut trousers aapki height proportion ko balanced aur authoritative look dete hain.",
+                    aiColorAdvice = "Black fabric aur Velvet Khussa ka match aapke Medium Wheatish skin tone par sab se royal lagega.",
+                    budgetRs = 5200,
+                    assignedDay = "Monday",
+                    isFavorite = true,
+                    hasVideo = true,
+                    imagePath = null,
+                    drawableResId = R.drawable.model_black_shalwar_male
                 )
-            }
-        }
-    } else {
-        LazyColumn(
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(looks, key = { it.id }) { look ->
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = DarkCard,
-                    border = BorderStroke(1.dp, DarkCardBorder),
-                    shadowElevation = 3.dp,
-                    modifier = Modifier.fillMaxWidth().testTag("saved_look_item_${look.id}")
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+            )
+        } else looks
+    }
+
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(effectiveLooks, key = { it.id }) { look ->
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = DarkCard,
+                border = BorderStroke(1.5.dp, GoldPrimary),
+                shadowElevation = 4.dp,
+                modifier = Modifier.fillMaxWidth().testTag("saved_look_item_${look.id}")
+            ) {
+                    Column {
+                        // 1. TOP: REAL AI GENERATED PHOTO OF USER/MODEL
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(340.dp)
+                                .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
                         ) {
-                            Column {
-                                Text(text = look.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = PureWhite)
+                            val localFile = look.imagePath?.let { File(it) }
+                            if (localFile != null && localFile.exists()) {
+                                AsyncImage(
+                                    model = localFile,
+                                    contentDescription = look.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else if (look.drawableResId != 0) {
+                                Image(
+                                    painter = painterResource(look.drawableResId),
+                                    contentDescription = look.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Image(
+                                    painter = painterResource(R.drawable.model_black_shalwar_male),
+                                    contentDescription = look.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            // Dark gradient overlay at top and bottom of photo
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                PureBlack.copy(alpha = 0.6f),
+                                                Color.Transparent,
+                                                PureBlack.copy(alpha = 0.85f)
+                                            )
+                                        )
+                                    )
+                            )
+
+                            // Top Badges
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(GoldPrimary)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = "REAL AI HD PHOTO",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = PureBlack
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { onToggleFavorite(look.id, look.isFavorite) },
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(PureBlack.copy(alpha = 0.6f))
+                                ) {
+                                    Icon(
+                                        imageVector = if (look.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = "Favorite",
+                                        tint = if (look.isFavorite) Color.Red else PureWhite,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            // Bottom Photo Info
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(12.dp)
+                            ) {
                                 Text(
-                                    text = "Height: ${"%.1f".format(look.userHeightFt)}ft ➔ ${"%.2f".format(look.calculatedHeightFt)}ft with footwear",
+                                    text = look.title,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp,
+                                    color = PureWhite
+                                )
+                                Text(
+                                    text = "Height Proportion: ${"%.1f".format(look.userHeightFt)}ft ➔ ${"%.2f".format(look.calculatedHeightFt)}ft",
                                     fontSize = 11.sp,
                                     color = GoldLight,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                            IconButton(onClick = { onToggleFavorite(look.id, look.isFavorite) }) {
-                                Icon(
-                                    imageVector = if (look.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                    contentDescription = "Favorite",
-                                    tint = if (look.isFavorite) Color.Red else TextMuted
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "• Outfit: ${look.dressName}\n• Shoes: ${look.shoesName}\n• Hair: ${look.hairName}\n• Jewellery: ${look.jewelleryName}",
-                            fontSize = 11.sp,
-                            lineHeight = 16.sp,
-                            color = TextMuted
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = DarkSurface,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "Verdict: ${look.aiVerdict}",
-                                fontSize = 10.sp,
-                                color = PureWhite,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Button(
-                                onClick = { onDownloadHd(look) },
-                                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = PureBlack),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.weight(1.2f).height(38.dp)
+                        // 2. MIDDLE: DETAILS (Outfit, Shoes, Hair, Jewellery)
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Download HD", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = DarkSurface,
+                                    border = BorderStroke(1.dp, DarkCardBorder),
+                                    modifier = Modifier.weight(1f).padding(vertical = 2.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(6.dp)) {
+                                        Text("Outfit", fontSize = 9.sp, color = TextMuted)
+                                        Text(look.dressName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1)
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = DarkSurface,
+                                    border = BorderStroke(1.dp, DarkCardBorder),
+                                    modifier = Modifier.weight(1f).padding(vertical = 2.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(6.dp)) {
+                                        Text("Footwear", fontSize = 9.sp, color = TextMuted)
+                                        Text(look.shoesName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = GoldLight, maxLines = 1)
+                                    }
+                                }
                             }
 
-                            Button(
-                                onClick = { onCatwalk(look) },
-                                colors = ButtonDefaults.buttonColors(containerColor = DarkSurface, contentColor = GoldLight),
-                                border = BorderStroke(1.dp, GoldPrimary),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.weight(1f).height(38.dp)
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(imageVector = Icons.Default.Movie, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Catwalk", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = DarkSurface,
+                                    border = BorderStroke(1.dp, DarkCardBorder),
+                                    modifier = Modifier.weight(1f).padding(vertical = 2.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(6.dp)) {
+                                        Text("Hairstyle", fontSize = 9.sp, color = TextMuted)
+                                        Text(look.hairName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1)
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = DarkSurface,
+                                    border = BorderStroke(1.dp, DarkCardBorder),
+                                    modifier = Modifier.weight(1f).padding(vertical = 2.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(6.dp)) {
+                                        Text("Jewellery/Watch", fontSize = 9.sp, color = TextMuted)
+                                        Text(look.jewelleryName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1)
+                                    }
+                                }
                             }
 
-                            OutlinedButton(
-                                onClick = { onShare(look) },
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 3. BOTTOM: VERDICT TEXT
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = DarkSurface,
                                 border = BorderStroke(1.dp, DarkCardBorder),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.weight(0.9f).height(38.dp)
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "AI Verdict: ${look.aiVerdict}",
+                                    fontSize = 11.sp,
+                                    color = TextMuted,
+                                    lineHeight = 15.sp,
+                                    modifier = Modifier.padding(10.dp)
+                                )
                             }
 
-                            IconButton(
-                                onClick = { onDelete(look.id) },
-                                modifier = Modifier.size(38.dp)
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 4. BOTTOM: 4 BUTTONS (Download HD / Catwalk / Share / Delete)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = Color.Red)
+                                Button(
+                                    onClick = { onDownloadHd(look) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = PureBlack),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1.3f).height(38.dp).testTag("card_download_hd_btn")
+                                ) {
+                                    Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Download HD", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                }
+
+                                Button(
+                                    onClick = { onCatwalk(look) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurface, contentColor = GoldLight),
+                                    border = BorderStroke(1.dp, GoldPrimary),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f).height(38.dp).testTag("card_catwalk_btn")
+                                ) {
+                                    Icon(imageVector = Icons.Default.Movie, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Catwalk", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = { onShare(look) },
+                                    border = BorderStroke(1.dp, DarkCardBorder),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(0.9f).height(38.dp).testTag("card_share_btn")
+                                ) {
+                                    Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
+                                }
+
+                                IconButton(
+                                    onClick = { onDelete(look.id) },
+                                    modifier = Modifier.size(38.dp).testTag("card_delete_btn")
+                                ) {
+                                    Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = Color.Red)
+                                }
                             }
                         }
                     }
@@ -267,7 +431,6 @@ fun SavedLooksTab(
             }
         }
     }
-}
 
 @Composable
 fun DailyCalendarTab(

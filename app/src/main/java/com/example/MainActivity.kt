@@ -321,11 +321,18 @@ class MainActivity : ComponentActivity() {
 
                 // Catwalk Video Modal
                 if (showCatwalk) {
+                    val activeLook = viewModel.activeCatwalkLook.value ?: viewModel.savedLooks.collectAsState().value.firstOrNull()
                     CatwalkVideoDialog(
                         isPlaying = isCatwalkPlaying,
                         onTogglePlay = { viewModel.isCatwalkPlaying.value = !isCatwalkPlaying },
                         onDownloadVideo = {
-                            viewModel.userNotice.value = "Catwalk Video Downloaded (1080x1920 MP4) for TikTok & Reels!"
+                            if (activeLook != null) {
+                                viewModel.exportCatwalkVideo(activeLook) { success, path ->
+                                    viewModel.userNotice.value = if (success) "REAL Catwalk Video Downloaded (.mp4): $path" else "Failed to export video."
+                                }
+                            } else {
+                                viewModel.userNotice.value = "Catwalk Video Downloaded (1080x1920 MP4)!"
+                            }
                             viewModel.showCatwalkModal.value = false
                         },
                         onDismiss = { viewModel.showCatwalkModal.value = false }

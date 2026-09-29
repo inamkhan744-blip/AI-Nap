@@ -2,20 +2,24 @@ package com.example.ui.viewmodel
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.os.Environment
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.R
 import com.example.data.local.SavedLookEntity
 import com.example.data.local.UserProfileEntity
 import com.example.data.model.*
 import com.example.data.repository.FashionRepository
 import com.example.util.BajiVoiceStylist
+import com.example.util.VideoExporter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -57,13 +61,13 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
 
     // Form fields
     val formGender = MutableStateFlow("Male")
-    val formHeightFt = MutableStateFlow(5.6f)
-    val formWeightKg = MutableStateFlow(68f)
+    val formHeightFt = MutableStateFlow(6.0f)
+    val formWeightKg = MutableStateFlow(72f)
     val formBodyType = MutableStateFlow("Medium")
     val formSkinTone = MutableStateFlow("Medium Wheatish")
     val formCity = MutableStateFlow("Quetta")
     val formPhotoUri = MutableStateFlow<String?>(null)
-    val formChestInches = MutableStateFlow(38f)
+    val formChestInches = MutableStateFlow(40f)
     val formWaistInches = MutableStateFlow(32f)
 
     // Category browsing & Module selections
@@ -80,10 +84,13 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
     // Final Look budget filter
     val filterBudgetRs = MutableStateFlow(8000)
 
+    // Live Try-on preview split slider (0.0 = user photo, 1.0 = AI wearing dress)
+    val liveTryOnSliderPos = MutableStateFlow(0.5f)
+
     // Modals
     val showScannerModal = MutableStateFlow(false)
     val showWeightPreviewModal = MutableStateFlow(false)
-    val targetWeightKg = MutableStateFlow(60f)
+    val targetWeightKg = MutableStateFlow(65f)
 
     val showCoupleModal = MutableStateFlow(false)
     val coupleOccasion = MutableStateFlow("Walima")
@@ -91,8 +98,9 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
 
     val showCatwalkModal = MutableStateFlow(false)
     val isCatwalkPlaying = MutableStateFlow(false)
+    val activeCatwalkLook = MutableStateFlow<SavedLookEntity?>(null)
 
-    val showMemeModal = MutableStateFlow(false) // Shaadi Se Pehle vs Baad
+    val showMemeModal = MutableStateFlow(false)
     val memeSliderPosition = MutableStateFlow(0.5f)
 
     val showSuitabilityDialog = MutableStateFlow(false)
@@ -125,6 +133,43 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                     initializeDefaultEnsemble("Male")
                 }
             }
+        }
+        viewModelScope.launch {
+            savedLooks.first { looks ->
+                if (looks.isEmpty()) {
+                    seedDefaultLook()
+                }
+                true
+            }
+        }
+    }
+
+    private fun seedDefaultLook() {
+        viewModelScope.launch {
+            val defaultLook = SavedLookEntity(
+                title = "Classic Black Shalwar Kameez Royal Look",
+                timestamp = System.currentTimeMillis(),
+                dressName = "Classic Black Shalwar Kameez",
+                hairName = "Side Parting Fade",
+                jewelleryName = "Luxury Gold Watch",
+                shoesName = "Handcrafted Black Velvet Khussa",
+                userHeightFt = 6.0f,
+                calculatedHeightFt = 6.17f,
+                bodyType = "Medium",
+                skinTone = "Medium Wheatish",
+                city = "Quetta",
+                weatherText = "12°C Chilly",
+                aiVerdict = "YES - 100% Royal Match! 6.0ft frame par Classic Black Shalwar Kameez aur Black Khussa ki fall bilkul majestic lagti hai.",
+                aiStylingTip = "Is height ke liye vertical pleats aur straight cut trousers aapki height proportion ko balanced aur authoritative look dete hain.",
+                aiColorAdvice = "Black fabric aur Velvet Khussa ka match aapke Medium Wheatish skin tone par sab se royal lagega.",
+                budgetRs = 5200,
+                assignedDay = "Monday",
+                isFavorite = true,
+                hasVideo = true,
+                imagePath = null,
+                drawableResId = R.drawable.model_black_shalwar_male
+            )
+            repository.saveFinalLook(defaultLook)
         }
     }
 
@@ -287,6 +332,8 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
         val bodyType = profile?.bodyType ?: formBodyType.value
         val skinTone = profile?.skinTone ?: formSkinTone.value
         val city = profile?.city ?: formCity.value
+        val gender = profile?.gender ?: formGender.value
+        val photoUri = profile?.photoUri ?: formPhotoUri.value
         val isPremium = profile?.isPremium ?: false
 
         val shoeBoost = shoes.heightBoostInches
@@ -295,18 +342,26 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
 
         _finalLookState.value = FinalLookGenerationState(
             isLoading = true,
-            progressStep = "AI Measuring Height (${"%.1f".format(height)}ft) Proportions...",
+            progressStep = "AI Generating Real HD Photo with Gemini (${"%.1f".format(height)}ft)...",
             generatedLook = null
         )
 
         viewModelScope.launch {
-            delay(500)
-            _finalLookState.value = _finalLookState.value.copy(
-                progressStep = "Simulating Fabric Fall & Shoe Lift (+${shoeBoost} inch)..."
+            // Real HD Image generation with Gemini or authentic Pakistani model photo
+            val (realImagePath, modelDrawableId) = repository.generateLookImage(
+                dress = dress,
+                shoes = shoes,
+                hair = hair,
+                jewellery = jewellery,
+                gender = gender,
+                heightFt = height,
+                bodyType = bodyType,
+                skinTone = skinTone,
+                userPhotoUri = photoUri
             )
-            delay(600)
+
             _finalLookState.value = _finalLookState.value.copy(
-                progressStep = "Checking Weather in $city (${weather.tempC}°C) & Color Harmony..."
+                progressStep = "Balancing Proportion & Fitting Fabric to ${"%.1f".format(height)}ft body..."
             )
             delay(500)
 
@@ -335,7 +390,9 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                 budgetRs = totalBudget,
                 assignedDay = null,
                 isFavorite = false,
-                hasVideo = true
+                hasVideo = true,
+                imagePath = realImagePath,
+                drawableResId = modelDrawableId
             )
 
             val id = repository.saveFinalLook(newLook)
@@ -349,7 +406,7 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                 showConfetti = true
             )
 
-            // Auto speak Baji's voice recommendation
+            activeCatwalkLook.value = savedWithId
             voiceStylist.speak("Zabardast! Aapka Mukammal Look tayyar hai. Is footwear se aap ${"%.2f".format(calculatedHeight)}ft lagtay hain!")
         }
     }
@@ -394,6 +451,17 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
         userNotice.value = null
     }
 
+    fun exportCatwalkVideo(look: SavedLookEntity, onComplete: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            VideoExporter.generateCatwalkMp4Video(
+                context = getApplication(),
+                dressName = look.dressName,
+                heightFt = look.userHeightFt,
+                onComplete = onComplete
+            )
+        }
+    }
+
     fun exportHdPhotoToGallery(look: SavedLookEntity, onComplete: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {
@@ -403,171 +471,126 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                 val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(bitmap)
 
-                // Background
-                val bgPaint = Paint().apply {
-                    shader = LinearGradient(
-                        0f, 0f, 0f, height.toFloat(),
-                        intArrayOf(AndroidColor.parseColor("#000000"), AndroidColor.parseColor("#14141E"), AndroidColor.parseColor("#000000")),
-                        null,
-                        Shader.TileMode.CLAMP
-                    )
+                // 1. Draw Real Model / AI Photo as base
+                val modelBitmap: Bitmap? = if (!look.imagePath.isNullOrBlank() && File(look.imagePath).exists()) {
+                    BitmapFactory.decodeFile(look.imagePath)
+                } else if (look.drawableResId != 0) {
+                    BitmapFactory.decodeResource(context.resources, look.drawableResId)
+                } else {
+                    BitmapFactory.decodeResource(context.resources, R.drawable.model_black_shalwar_male)
                 }
-                canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+
+                if (modelBitmap != null) {
+                    val srcRect = Rect(0, 0, modelBitmap.width, modelBitmap.height)
+                    val dstRect = Rect(0, 0, width, height)
+                    canvas.drawBitmap(modelBitmap, srcRect, dstRect, null)
+                } else {
+                    canvas.drawColor(AndroidColor.BLACK)
+                }
+
+                // Top & Bottom luxury gradient shades so text is crystal clear
+                val topGradient = Paint().apply {
+                    shader = LinearGradient(0f, 0f, 0f, 320f, AndroidColor.parseColor("#E6000000").toInt(), AndroidColor.TRANSPARENT, Shader.TileMode.CLAMP)
+                }
+                canvas.drawRect(0f, 0f, width.toFloat(), 320f, topGradient)
+
+                val bottomGradient = Paint().apply {
+                    shader = LinearGradient(0f, height - 500f, 0f, height.toFloat(), AndroidColor.TRANSPARENT, AndroidColor.parseColor("#F2000000").toInt(), Shader.TileMode.CLAMP)
+                }
+                canvas.drawRect(0f, height - 500f, width.toFloat(), height.toFloat(), bottomGradient)
 
                 // Gold Border Frame
                 val borderPaint = Paint().apply {
                     color = AndroidColor.parseColor("#D4AF37")
                     style = Paint.Style.STROKE
-                    strokeWidth = 6f
+                    strokeWidth = 8f
                     isAntiAlias = true
                 }
-                canvas.drawRoundRect(RectF(40f, 60f, width - 40f, height - 60f), 36f, 36f, borderPaint)
+                canvas.drawRoundRect(RectF(30f, 40f, width - 30f, height - 40f), 32f, 32f, borderPaint)
 
-                // Crown & Header
+                // Header
                 val headerPaint = Paint().apply {
                     color = AndroidColor.parseColor("#D4AF37")
-                    textSize = 58f
+                    textSize = 52f
                     isFakeBoldText = true
                     textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                canvas.drawText("👑 AI NAP - HAR JISM KA LIBAAS", (width / 2).toFloat(), 180f, headerPaint)
+                canvas.drawText("👑 AI NAP - HAR JISM KA LIBAAS", (width / 2).toFloat(), 130f, headerPaint)
 
                 val subPaint = Paint().apply {
-                    color = AndroidColor.parseColor("#FFFFFF")
-                    textSize = 34f
+                    color = AndroidColor.WHITE
+                    textSize = 30f
                     textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                canvas.drawText("Complete Proportional Look • ${look.city} (${look.weatherText})", (width / 2).toFloat(), 240f, subPaint)
+                canvas.drawText("${look.dressName} • ${look.shoesName}", (width / 2).toFloat(), 185f, subPaint)
 
-                // Proportional Height Tag
-                val tagBoxPaint = Paint().apply {
+                // Bottom Proportional Height Pill
+                val pillRect = RectF(80f, height - 380f, width - 80f, height - 260f)
+                val pillPaint = Paint().apply {
+                    color = AndroidColor.parseColor("#CC181824").toInt()
+                    isAntiAlias = true
+                }
+                val pillBorder = Paint().apply {
                     color = AndroidColor.parseColor("#D4AF37")
+                    style = Paint.Style.STROKE
+                    strokeWidth = 3f
                     isAntiAlias = true
                 }
-                val tagRect = RectF(100f, 300f, width - 100f, 420f)
-                canvas.drawRoundRect(tagRect, 20f, 20f, tagBoxPaint)
+                canvas.drawRoundRect(pillRect, 20f, 20f, pillPaint)
+                canvas.drawRoundRect(pillRect, 20f, 20f, pillBorder)
 
-                val tagTextPaint = Paint().apply {
-                    color = AndroidColor.BLACK
-                    textSize = 38f
-                    isFakeBoldText = true
-                    textAlign = Paint.Align.CENTER
-                    isAntiAlias = true
-                }
-                canvas.drawText("Original: ${"%.1f".format(look.userHeightFt)}ft  ➔  With Shoes: ${"%.2f".format(look.calculatedHeightFt)}ft", (width / 2).toFloat(), 360f, tagTextPaint)
-                canvas.drawText("Body: ${look.bodyType} • Tone: ${look.skinTone}", (width / 2).toFloat(), 405f, Paint().apply {
-                    color = AndroidColor.parseColor("#332200")
-                    textSize = 28f
-                    textAlign = Paint.Align.CENTER
-                    isAntiAlias = true
-                })
-
-                // Ensemble Items
-                val itemHeaderPaint = Paint().apply {
+                val tagPaint = Paint().apply {
                     color = AndroidColor.parseColor("#FFDF73")
                     textSize = 36f
                     isFakeBoldText = true
+                    textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                val itemValPaint = Paint().apply {
+                canvas.drawText("Original: ${"%.1f".format(look.userHeightFt)}ft  ➔  With Shoes: ${"%.2f".format(look.calculatedHeightFt)}ft", (width / 2).toFloat(), height - 325f, tagPaint)
+
+                val bodyPaint = Paint().apply {
                     color = AndroidColor.WHITE
-                    textSize = 34f
+                    textSize = 26f
+                    textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
+                canvas.drawText("Body: ${look.bodyType} • Tone: ${look.skinTone} • City: ${look.city}", (width / 2).toFloat(), height - 285f, bodyPaint)
 
-                var y = 500f
-                val itemsList = listOf(
-                    "Outfit / Dress" to look.dressName,
-                    "Footwear & Shoes" to look.shoesName,
-                    "Hair & Beard" to look.hairName,
-                    "Jewellery & Watch" to look.jewelleryName,
-                    "Mehndi Art" to (look.mehndiName ?: "N/A"),
-                    "Total Budget" to "Rs ${look.budgetRs}"
-                )
-
-                for ((label, value) in itemsList) {
-                    canvas.drawText("$label:", 100f, y, itemHeaderPaint)
-                    canvas.drawText(value, 100f, y + 44f, itemValPaint)
-                    y += 110f
-                }
-
-                // AI Verdict
-                val aiBoxPaint = Paint().apply {
-                    color = AndroidColor.parseColor("#181824")
+                // Verdict snippet
+                val verdictPaint = Paint().apply {
+                    color = AndroidColor.parseColor("#E0E0E0")
+                    textSize = 24f
+                    textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                val aiRect = RectF(90f, y, width - 90f, y + 360f)
-                canvas.drawRoundRect(aiRect, 20f, 20f, aiBoxPaint)
-
-                canvas.drawText("✨ Baji AI Recommendation:", 120f, y + 55f, Paint().apply {
-                    color = AndroidColor.parseColor("#0E8A5E")
-                    textSize = 34f
-                    isFakeBoldText = true
-                    isAntiAlias = true
-                })
-
-                val aiTextPaint = Paint().apply {
-                    color = AndroidColor.parseColor("#E5E5E5")
-                    textSize = 28f
-                    isAntiAlias = true
-                }
-                drawMultiline(canvas, look.aiStylingTip, 120f, y + 105f, 840f, aiTextPaint)
-                drawMultiline(canvas, look.aiColorAdvice, 120f, y + 230f, 840f, aiTextPaint)
+                canvas.drawText(look.aiVerdict.take(70) + "...", (width / 2).toFloat(), height - 200f, verdictPaint)
 
                 // Watermark check
                 val isPrem = userProfile.value?.isPremium ?: false
-                if (!isPrem) {
-                    val wmPaint = Paint().apply {
-                        color = AndroidColor.parseColor("#80D4AF37")
-                        textSize = 32f
-                        textAlign = Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    canvas.drawText("Created with AI NAP • Free Edition (Upgrade for No Watermark)", (width / 2).toFloat(), height - 120f, wmPaint)
-                } else {
-                    val vPaint = Paint().apply {
-                        color = AndroidColor.parseColor("#D4AF37")
-                        textSize = 30f
-                        textAlign = Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    canvas.drawText("👑 AI NAP VIP Ultra-HD Masterpiece • Zero Watermark", (width / 2).toFloat(), height - 120f, vPaint)
+                val wmPaint = Paint().apply {
+                    color = if (isPrem) AndroidColor.parseColor("#D4AF37") else AndroidColor.parseColor("#80D4AF37").toInt()
+                    textSize = 28f
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
                 }
+                val wmText = if (isPrem) "👑 AI NAP VIP Ultra-HD Masterpiece • Zero Watermark" else "Created with AI NAP • Free Edition (Upgrade for No Watermark)"
+                canvas.drawText(wmText, (width / 2).toFloat(), height - 90f, wmPaint)
 
-                val filename = "AINAP_Look_${System.currentTimeMillis()}.jpg"
-                val file = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), filename)
+                // Save file to pictures
+                val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                val targetDir = if (picturesDir.exists() || picturesDir.mkdirs()) picturesDir else context.filesDir
+                val file = File(targetDir, "AINAP_HD_${System.currentTimeMillis()}.jpg")
                 val fos = FileOutputStream(file)
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 96, fos)
                 fos.flush()
                 fos.close()
 
                 onComplete(true, file.absolutePath)
             } catch (e: Exception) {
-                onComplete(false, e.localizedMessage ?: "Error saving")
+                onComplete(false, e.localizedMessage ?: "Error saving photo")
             }
-        }
-    }
-
-    private fun drawMultiline(canvas: Canvas, text: String, x: Float, y: Float, maxWidth: Float, paint: Paint) {
-        var currentY = y
-        val words = text.split(" ")
-        val currentLine = StringBuilder()
-
-        for (word in words) {
-            val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
-            if (paint.measureText(testLine) < maxWidth) {
-                currentLine.append(if (currentLine.isEmpty()) word else " $word")
-            } else {
-                canvas.drawText(currentLine.toString(), x, currentY, paint)
-                currentY += paint.textSize * 1.35f
-                currentLine.setLength(0)
-                currentLine.append(word)
-            }
-        }
-        if (currentLine.isNotEmpty()) {
-            canvas.drawText(currentLine.toString(), x, currentY, paint)
         }
     }
 }
