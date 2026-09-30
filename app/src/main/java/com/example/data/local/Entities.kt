@@ -6,18 +6,35 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "user_profile")
 data class UserProfileEntity(
     @PrimaryKey val id: Int = 1,
+    val name: String = "User",
     val gender: String = "Male", // "Male" or "Female"
     val heightFt: Float = 5.6f,
     val weightKg: Float = 68f,
+    val language: String = "ur", // "ur" or "en"
     val bodyType: String = "Medium", // "Slim", "Medium", "Chubby", "Muscular"
     val skinTone: String = "Medium Wheatish", // "Fair", "Medium Wheatish", "Dark"
-    val city: String = "Quetta", // "Quetta", "Lahore", "Karachi", "Islamabad", "Peshawar"
+    val city: String = "Lahore",
     val photoUri: String? = null,
     val chestInches: Float = 38f,
     val waistInches: Float = 32f,
     val isSetupComplete: Boolean = false,
     val isPremium: Boolean = false,
     val dailyLooksLeft: Int = 2
+)
+
+@Entity(tableName = "seller_dresses")
+data class SellerDressEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val shopName: String,
+    val city: String,
+    val dressName: String,
+    val frontPhotoUrl: String,
+    val backPhotoUrl: String? = null,
+    val priceRs: Int,
+    val whatsappNumber: String,
+    val gender: String, // "Male" or "Female"
+    val category: String = "Jora / Dress",
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "saved_looks")

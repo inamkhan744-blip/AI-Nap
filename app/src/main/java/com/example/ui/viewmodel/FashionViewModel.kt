@@ -61,25 +61,42 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
 
     // Form fields
     val formGender = MutableStateFlow("Male")
-    val formHeightFt = MutableStateFlow(6.0f)
-    val formWeightKg = MutableStateFlow(72f)
+    val formName = MutableStateFlow("Hamza")
+    val currentLanguage = MutableStateFlow("ur")
+    val formHeightFt = MutableStateFlow(5.8f)
+    val formWeightKg = MutableStateFlow(70f)
     val formBodyType = MutableStateFlow("Medium")
     val formSkinTone = MutableStateFlow("Medium Wheatish")
-    val formCity = MutableStateFlow("Quetta")
+    val formCity = MutableStateFlow("Lahore")
     val formPhotoUri = MutableStateFlow<String?>(null)
     val formChestInches = MutableStateFlow(40f)
     val formWaistInches = MutableStateFlow(32f)
 
-    // Category browsing & Module selections
-    val selectedCategory = MutableStateFlow(FashionCategory.DRESS_TRY_ON)
-    val isWeddingStudioActive = MutableStateFlow(false)
+    // Seller Marketplace
+    val sellerDresses: StateFlow<List<com.example.data.local.SellerDressEntity>> = repository.sellerDresses
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Final Look Slots
+    // 360 degree rotation and view angles
+    val modelRotationAngle = MutableStateFlow(0f)
+    val isBackView = MutableStateFlow(false)
+
+    // Layer-by-layer slots
     val selectedDress = MutableStateFlow<FashionItem?>(null)
     val selectedShoes = MutableStateFlow<FashionItem?>(null)
     val selectedHair = MutableStateFlow<FashionItem?>(null)
     val selectedJewellery = MutableStateFlow<FashionItem?>(null)
     val selectedMehndi = MutableStateFlow<FashionItem?>(null)
+    val selectedGala = MutableStateFlow<FashionItem?>(null)
+    val selectedCap = MutableStateFlow<FashionItem?>(null)
+    val selectedDaman = MutableStateFlow<FashionItem?>(null)
+
+    // Category browsing & Module selections
+    val selectedCategory = MutableStateFlow(FashionCategory.DRESS_TRY_ON)
+    val selectedPehnoCategory = MutableStateFlow(PehnoCategory.DRESS)
+    val searchQuery = MutableStateFlow("")
+    val showSellerDialog = MutableStateFlow(false)
+    val showProfileEdit = MutableStateFlow(false)
+    val isWeddingStudioActive = MutableStateFlow(false)
 
     // Final Look budget filter
     val filterBudgetRs = MutableStateFlow(8000)
@@ -261,29 +278,98 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun initializeDefaultEnsemble(gender: String) {
-        val dresses = FashionCatalog.getItemsForCategory(FashionCategory.DRESS_TRY_ON, gender)
-        val shoes = FashionCatalog.getItemsForCategory(FashionCategory.SHOES, gender)
-        val hair = FashionCatalog.getItemsForCategory(FashionCategory.HAIR_BEARD, gender)
-        val jewel = FashionCatalog.getItemsForCategory(FashionCategory.JEWELLERY, gender)
-        val mehndi = FashionCatalog.getItemsForCategory(FashionCategory.MEHNDI, gender)
+    fun toggleLanguage() {
+        currentLanguage.value = if (currentLanguage.value == "ur") "en" else "ur"
+    }
 
-        if (selectedDress.value == null || selectedDress.value?.gender != gender) {
-            selectedDress.value = dresses.firstOrNull()
+    fun saveInitialProfile(name: String, gender: String, weightKg: Float, heightFt: Float, language: String) {
+        viewModelScope.launch {
+            val entity = UserProfileEntity(
+                id = 1,
+                name = name.ifBlank { "User" },
+                gender = gender,
+                heightFt = heightFt,
+                weightKg = weightKg,
+                language = language,
+                isSetupComplete = true
+            )
+            repository.saveProfile(entity)
+            formName.value = entity.name
+            formGender.value = entity.gender
+            formWeightKg.value = entity.weightKg
+            formHeightFt.value = entity.heightFt
+            currentLanguage.value = entity.language
+            initializeDefaultEnsemble(gender)
+            _currentScreen.value = AppScreen.HOME
         }
-        if (selectedShoes.value == null || selectedShoes.value?.gender != gender) {
-            selectedShoes.value = shoes.firstOrNull()
+    }
+
+    fun publishSellerDress(
+        shopName: String,
+        city: String,
+        dressName: String,
+        frontUrl: String,
+        backUrl: String?,
+        priceRs: Int,
+        whatsappNumber: String,
+        gender: String
+    ) {
+        viewModelScope.launch {
+            val entity = com.example.data.local.SellerDressEntity(
+                shopName = shopName,
+                city = city,
+                dressName = dressName,
+                frontPhotoUrl = frontUrl,
+                backPhotoUrl = backUrl,
+                priceRs = priceRs,
+                whatsappNumber = whatsappNumber,
+                gender = gender
+            )
+            repository.addSellerDress(entity)
+            userNotice.value = if (currentLanguage.value == "ur") "جوڑا کامیابی سے مارکیٹ میں شامل ہو گیا!" else "Dress successfully published!"
+            showSellerDialog.value = false
         }
-        if (selectedHair.value == null || selectedHair.value?.gender != gender) {
-            selectedHair.value = hair.firstOrNull()
+    }
+
+    fun selectItemLayer(item: FashionItem) {
+        when (item.pehnoCategory) {
+            PehnoCategory.DRESS -> selectedDress.value = item
+            PehnoCategory.GALA_COLLAR, PehnoCategory.GALA_DESIGN -> selectedGala.value = item
+            PehnoCategory.TOPI_CAP -> selectedCap.value = item
+            PehnoCategory.DAMAN_DESIGN -> selectedDaman.value = item
+            PehnoCategory.MEHNDI -> selectedMehndi.value = item
+            PehnoCategory.HAIRSTYLE -> selectedHair.value = item
+            PehnoCategory.JEWELLERY -> selectedJewellery.value = item
+            PehnoCategory.SHOES -> selectedShoes.value = item
         }
-        if (selectedJewellery.value == null || selectedJewellery.value?.gender != gender) {
-            selectedJewellery.value = jewel.firstOrNull()
-        }
+        userNotice.value = "${item.name} applied to model!"
+    }
+
+    fun initializeDefaultEnsemble(gender: String) {
+        val dresses = FashionCatalog.getItemsForPehnoCategory(PehnoCategory.DRESS, gender)
+        val shoes = FashionCatalog.getItemsForPehnoCategory(PehnoCategory.SHOES, gender)
+        val hair = FashionCatalog.getItemsForPehnoCategory(PehnoCategory.HAIRSTYLE, gender)
+        val jewel = FashionCatalog.getItemsForPehnoCategory(PehnoCategory.JEWELLERY, gender)
+        val mehndi = FashionCatalog.getItemsForPehnoCategory(PehnoCategory.MEHNDI, gender)
+        val gala = if (gender == "Female") FashionCatalog.getItemsForPehnoCategory(PehnoCategory.GALA_DESIGN, gender)
+                   else FashionCatalog.getItemsForPehnoCategory(PehnoCategory.GALA_COLLAR, gender)
+        val cap = FashionCatalog.getItemsForPehnoCategory(PehnoCategory.TOPI_CAP, gender)
+        val daman = FashionCatalog.getItemsForPehnoCategory(PehnoCategory.DAMAN_DESIGN, gender)
+
+        selectedDress.value = dresses.firstOrNull()
+        selectedShoes.value = shoes.firstOrNull()
+        selectedHair.value = hair.firstOrNull()
+        selectedGala.value = gala.firstOrNull()
         if (gender == "Female") {
+            selectedJewellery.value = jewel.firstOrNull()
             selectedMehndi.value = mehndi.firstOrNull()
+            selectedDaman.value = daman.firstOrNull()
+            selectedCap.value = null
         } else {
+            selectedCap.value = cap.firstOrNull()
+            selectedJewellery.value = null
             selectedMehndi.value = null
+            selectedDaman.value = null
         }
     }
 
@@ -590,6 +676,219 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                 onComplete(true, file.absolutePath)
             } catch (e: Exception) {
                 onComplete(false, e.localizedMessage ?: "Error saving photo")
+            }
+        }
+    }
+
+    fun exportPehnoModelLookPng(onComplete: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val context = getApplication<Application>()
+                val width = 1080
+                val height = 1920
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
+
+                val dress = selectedDress.value
+                val gender = formGender.value
+                val shoes = selectedShoes.value
+                val h = formHeightFt.value
+                val w = formWeightKg.value
+
+                val fallbackRes = if (gender == "Female") {
+                    if (dress?.name?.contains("Lehenga", true) == true) R.drawable.model_bridal_lehenga_female
+                    else R.drawable.model_emerald_kurti_female
+                } else {
+                    if (dress?.name?.contains("Sherwani", true) == true) R.drawable.model_sherwani_male
+                    else R.drawable.model_black_shalwar_male
+                }
+
+                val modelBitmap = BitmapFactory.decodeResource(context.resources, fallbackRes)
+                if (modelBitmap != null) {
+                    val srcRect = Rect(0, 0, modelBitmap.width, modelBitmap.height)
+                    val dstRect = Rect(0, 0, width, height)
+                    canvas.drawBitmap(modelBitmap, srcRect, dstRect, null)
+                } else {
+                    canvas.drawColor(AndroidColor.BLACK)
+                }
+
+                // Dark gradients top and bottom
+                val topGradient = Paint().apply {
+                    shader = LinearGradient(0f, 0f, 0f, 340f, AndroidColor.parseColor("#E6000000").toInt(), AndroidColor.TRANSPARENT, Shader.TileMode.CLAMP)
+                }
+                canvas.drawRect(0f, 0f, width.toFloat(), 340f, topGradient)
+
+                val bottomGradient = Paint().apply {
+                    shader = LinearGradient(0f, height - 450f, 0f, height.toFloat(), AndroidColor.TRANSPARENT, AndroidColor.parseColor("#F2000000").toInt(), Shader.TileMode.CLAMP)
+                }
+                canvas.drawRect(0f, height - 450f, width.toFloat(), height.toFloat(), bottomGradient)
+
+                // Pehno Green frame
+                val borderPaint = Paint().apply {
+                    color = AndroidColor.parseColor("#0F766E")
+                    style = Paint.Style.STROKE
+                    strokeWidth = 10f
+                    isAntiAlias = true
+                }
+                canvas.drawRoundRect(RectF(24f, 24f, width - 24f, height - 24f), 32f, 32f, borderPaint)
+
+                // Top Header Text
+                val titlePaint = Paint().apply {
+                    color = AndroidColor.WHITE
+                    textSize = 58f
+                    isFakeBoldText = true
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                canvas.drawText("پہنو • Pehno - Pehen Ke Dekho", (width / 2).toFloat(), 130f, titlePaint)
+
+                val subPaint = Paint().apply {
+                    color = AndroidColor.parseColor("#A7F3D0")
+                    textSize = 34f
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                canvas.drawText("${dress?.name ?: "Pakistani Jora"} • ${dress?.storeSource ?: "All Pakistan Marketplace"}", (width / 2).toFloat(), 190f, subPaint)
+
+                // Bottom badge
+                val pillRect = RectF(60f, height - 320f, width - 60f, height - 160f)
+                val pillPaint = Paint().apply {
+                    color = AndroidColor.parseColor("#D9042F2E").toInt()
+                    isAntiAlias = true
+                }
+                val pillBorder = Paint().apply {
+                    color = AndroidColor.parseColor("#14B8A6")
+                    style = Paint.Style.STROKE
+                    strokeWidth = 3f
+                    isAntiAlias = true
+                }
+                canvas.drawRoundRect(pillRect, 24f, 24f, pillPaint)
+                canvas.drawRoundRect(pillRect, 24f, 24f, pillBorder)
+
+                val statPaint = Paint().apply {
+                    color = AndroidColor.WHITE
+                    textSize = 36f
+                    isFakeBoldText = true
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                val shoeLift = shoes?.heightBoostInches ?: 0f
+                canvas.drawText("Body: ${w.toInt()}kg • Height: ${"%.1f".format(h)}ft ${if (shoeLift > 0) "(+${shoeLift.toInt()}\" with ${shoes?.name})" else ""}", (width / 2).toFloat(), height - 250f, statPaint)
+
+                val commPaint = Paint().apply {
+                    color = AndroidColor.parseColor("#A7F3D0")
+                    textSize = 28f
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                canvas.drawText("10% Commission will go to Pehno App • Order via Pehno App", (width / 2).toFloat(), height - 195f, commPaint)
+
+                // Save PNG
+                val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                val targetDir = if (picturesDir.exists() || picturesDir.mkdirs()) picturesDir else context.filesDir
+                val file = File(targetDir, "Pehno_Look_${System.currentTimeMillis()}.png")
+                val fos = FileOutputStream(file)
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                fos.flush()
+                fos.close()
+
+                onComplete(true, file.absolutePath)
+            } catch (e: Exception) {
+                onComplete(false, e.localizedMessage ?: "Failed to save look image")
+            }
+        }
+    }
+
+    fun exportDressPng(item: FashionItem, onComplete: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val context = getApplication<Application>()
+                val width = 1080
+                val height = 1920
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
+
+                val fallbackRes = if (item.gender == "Female") {
+                    if (item.name.contains("Lehenga", true)) R.drawable.model_bridal_lehenga_female
+                    else R.drawable.model_emerald_kurti_female
+                } else {
+                    if (item.name.contains("Sherwani", true)) R.drawable.model_sherwani_male
+                    else R.drawable.model_black_shalwar_male
+                }
+
+                val modelBitmap = BitmapFactory.decodeResource(context.resources, fallbackRes)
+                if (modelBitmap != null) {
+                    val srcRect = Rect(0, 0, modelBitmap.width, modelBitmap.height)
+                    val dstRect = Rect(0, 0, width, height)
+                    canvas.drawBitmap(modelBitmap, srcRect, dstRect, null)
+                } else {
+                    canvas.drawColor(AndroidColor.BLACK)
+                }
+
+                // Dark gradients
+                val topGradient = Paint().apply {
+                    shader = LinearGradient(0f, 0f, 0f, 320f, AndroidColor.parseColor("#E6000000").toInt(), AndroidColor.TRANSPARENT, Shader.TileMode.CLAMP)
+                }
+                canvas.drawRect(0f, 0f, width.toFloat(), 320f, topGradient)
+
+                val bottomGradient = Paint().apply {
+                    shader = LinearGradient(0f, height - 380f, 0f, height.toFloat(), AndroidColor.TRANSPARENT, AndroidColor.parseColor("#F2000000").toInt(), Shader.TileMode.CLAMP)
+                }
+                canvas.drawRect(0f, height - 380f, width.toFloat(), height.toFloat(), bottomGradient)
+
+                val borderPaint = Paint().apply {
+                    color = AndroidColor.parseColor("#0F766E")
+                    style = Paint.Style.STROKE
+                    strokeWidth = 10f
+                    isAntiAlias = true
+                }
+                canvas.drawRoundRect(RectF(24f, 24f, width - 24f, height - 24f), 32f, 32f, borderPaint)
+
+                val titlePaint = Paint().apply {
+                    color = AndroidColor.WHITE
+                    textSize = 54f
+                    isFakeBoldText = true
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                canvas.drawText("پہنو • Pehno - Pehen Ke Dekho", (width / 2).toFloat(), 120f, titlePaint)
+
+                val namePaint = Paint().apply {
+                    color = AndroidColor.parseColor("#A7F3D0")
+                    textSize = 34f
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                canvas.drawText("${item.name} (${item.urduName})", (width / 2).toFloat(), 180f, namePaint)
+
+                val pricePaint = Paint().apply {
+                    color = AndroidColor.WHITE
+                    textSize = 42f
+                    isFakeBoldText = true
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                canvas.drawText("Rs. ${item.priceRs} • ${item.storeSource}", (width / 2).toFloat(), height - 220f, pricePaint)
+
+                val noticePaint = Paint().apply {
+                    color = AndroidColor.parseColor("#A7F3D0")
+                    textSize = 30f
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                canvas.drawText("10% Commission will go to Pehno App", (width / 2).toFloat(), height - 160f, noticePaint)
+
+                val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                val targetDir = if (picturesDir.exists() || picturesDir.mkdirs()) picturesDir else context.filesDir
+                val file = File(targetDir, "Pehno_${item.id}_${System.currentTimeMillis()}.png")
+                val fos = FileOutputStream(file)
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                fos.flush()
+                fos.close()
+
+                onComplete(true, file.absolutePath)
+            } catch (e: Exception) {
+                onComplete(false, e.localizedMessage ?: "Failed to save dress image")
             }
         }
     }

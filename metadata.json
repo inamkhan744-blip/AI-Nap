@@ -1,6 +1,6 @@
 {
-  "name": "AI NAP",
-  "description": "AI NAP - Har Jism Ka Libaas. Complete virtual dressing, height styling, wedding looks, and couture studio.",
+  "name": "Pehno",
+  "description": "Pehno - Pehen Ke Dekho. Virtual try-on and all-Pakistan fashion marketplace.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

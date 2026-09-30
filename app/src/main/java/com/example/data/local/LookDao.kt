@@ -35,4 +35,13 @@ interface LookDao {
 
     @Query("UPDATE user_profile SET isPremium = :isPremium WHERE id = 1")
     suspend fun updatePremiumStatus(isPremium: Boolean)
+
+    @Query("SELECT * FROM seller_dresses ORDER BY timestamp DESC")
+    fun getAllSellerDresses(): Flow<List<SellerDressEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSellerDress(dress: SellerDressEntity): Long
+
+    @Query("DELETE FROM seller_dresses WHERE id = :id")
+    suspend fun deleteSellerDress(id: Long)
 }

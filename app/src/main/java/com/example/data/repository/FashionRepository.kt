@@ -18,9 +18,18 @@ class FashionRepository(private val context: Context) {
 
     val userProfile: Flow<UserProfileEntity?> = dao.getUserProfile()
     val savedLooks: Flow<List<SavedLookEntity>> = dao.getAllSavedLooks()
+    val sellerDresses: Flow<List<com.example.data.local.SellerDressEntity>> = dao.getAllSellerDresses()
 
     suspend fun saveProfile(profile: UserProfileEntity) {
         dao.saveUserProfile(profile)
+    }
+
+    suspend fun addSellerDress(dress: com.example.data.local.SellerDressEntity): Long {
+        return dao.insertSellerDress(dress)
+    }
+
+    suspend fun deleteSellerDress(id: Long) {
+        dao.deleteSellerDress(id)
     }
 
     suspend fun saveFinalLook(look: SavedLookEntity): Long {

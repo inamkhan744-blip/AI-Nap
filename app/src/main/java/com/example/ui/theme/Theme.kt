@@ -1,26 +1,25 @@
 package com.example.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-val NapDarkColorScheme = darkColorScheme(
-    primary = GoldPrimary,
-    onPrimary = PureBlack,
-    primaryContainer = GoldContainer,
-    onPrimaryContainer = OnGoldContainer,
-    secondary = GoldLight,
-    onSecondary = PureBlack,
-    tertiary = EmeraldAccent,
-    onTertiary = PureWhite,
-    background = PureBlack,
-    onBackground = PureWhite,
-    surface = DarkSurface,
-    onSurface = PureWhite,
-    surfaceVariant = DarkCard,
-    onSurfaceVariant = TextMuted,
-    outline = GoldPrimary.copy(alpha = 0.5f),
-    outlineVariant = DarkCardBorder
+val PehnoColorScheme = lightColorScheme(
+    primary = PehnoGreenPrimary,
+    onPrimary = PehnoWhite,
+    primaryContainer = PehnoGreenLight,
+    onPrimaryContainer = PehnoGreenDark,
+    secondary = PehnoGreenAccent,
+    onSecondary = PehnoWhite,
+    tertiary = PehnoBlack,
+    onTertiary = PehnoWhite,
+    background = PehnoWhite,
+    onBackground = PehnoBlack,
+    surface = PehnoWhite,
+    onSurface = PehnoBlack,
+    surfaceVariant = PehnoSurface,
+    onSurfaceVariant = PehnoTextSecondary,
+    outline = PehnoCardBorder
 )
 
 @Composable
@@ -29,7 +28,7 @@ fun FitLookStudioTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = NapDarkColorScheme,
+        colorScheme = PehnoColorScheme,
         typography = Typography,
         content = content
     )

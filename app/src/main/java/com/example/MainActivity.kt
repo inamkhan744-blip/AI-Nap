@@ -8,8 +8,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -22,11 +25,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.*
-import com.example.ui.screens.*
+import com.example.ui.screens.MarketplaceScreen
+import com.example.ui.screens.ModelTryOnScreen
+import com.example.ui.screens.ProfileSetupScreen
+import com.example.ui.screens.SellDressScreen
 import com.example.ui.theme.*
-import com.example.ui.viewmodel.AppScreen
 import com.example.ui.viewmodel.FashionViewModel
+import com.example.util.PehnoStrings
+
+enum class PehnoMainTab {
+    TRY_ON,
+    MARKETPLACE,
+    SELL_DRESS
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -36,177 +47,233 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            val lang by viewModel.currentLanguage.collectAsState()
             val userProfile by viewModel.userProfile.collectAsState()
-            val currentScreen by viewModel.currentScreen.collectAsState()
-            val suitabilityState by viewModel.showSuitabilityDialog.collectAsState()
-            val activeItem by viewModel.activeSuitabilityItem.collectAsState()
-            val finalLookState by viewModel.finalLookState.collectAsState()
-            val showPremium by viewModel.showPremiumDialog.collectAsState()
             val userNotice by viewModel.userNotice.collectAsState()
+            val showProfileEdit by viewModel.showProfileEdit.collectAsState()
 
-            val showWeight by viewModel.showWeightPreviewModal.collectAsState()
-            val targetWeight by viewModel.targetWeightKg.collectAsState()
-            val showCouple by viewModel.showCoupleModal.collectAsState()
-            val coupleOccasion by viewModel.coupleOccasion.collectAsState()
-            val showCatwalk by viewModel.showCatwalkModal.collectAsState()
-            val isCatwalkPlaying by viewModel.isCatwalkPlaying.collectAsState()
-            val showMeme by viewModel.showMemeModal.collectAsState()
-            val memeSlider by viewModel.memeSliderPosition.collectAsState()
-
+            var currentTab by remember { mutableStateOf(PehnoMainTab.TRY_ON) }
             val snackbarHostState = remember { SnackbarHostState() }
 
             LaunchedEffect(userNotice) {
                 userNotice?.let {
                     snackbarHostState.showSnackbar(it)
-                    viewModel.clearNotice()
+                    viewModel.userNotice.value = null
                 }
             }
 
-            FitLookStudioTheme {
-                val isSetupComplete = userProfile?.isSetupComplete ?: false
+            val isSetupComplete = userProfile?.isSetupComplete ?: false
 
-                if (!isSetupComplete && currentScreen == AppScreen.ONBOARDING_CROWN) {
-                    OnboardingCrownScreen(
-                        onStartClick = { viewModel.navigateTo(AppScreen.ONBOARDING_FORM) }
-                    )
-                } else if (!isSetupComplete || currentScreen == AppScreen.ONBOARDING_FORM) {
-                    SetupScreen(
+            FitLookStudioTheme {
+                if (!isSetupComplete || showProfileEdit) {
+                    ProfileSetupScreen(
                         viewModel = viewModel,
                         isEditing = isSetupComplete,
-                        onCompleted = { viewModel.navigateTo(AppScreen.HOME) }
+                        onCompleted = {
+                            viewModel.showProfileEdit.value = false
+                        }
                     )
                 } else {
-                    if (currentScreen != AppScreen.HOME) {
+                    if (currentTab != PehnoMainTab.TRY_ON) {
                         BackHandler {
-                            viewModel.navigateTo(AppScreen.HOME)
+                            currentTab = PehnoMainTab.TRY_ON
                         }
                     }
 
                     Scaffold(
-                        containerColor = PureBlack,
+                        containerColor = PehnoWhite,
                         snackbarHost = { SnackbarHost(snackbarHostState) },
-                        bottomBar = {
-                            NavigationBar(
-                                containerColor = DarkSurface,
-                                tonalElevation = 6.dp,
-                                modifier = Modifier.testTag("bottom_nav_bar")
+                        topBar = {
+                            Surface(
+                                color = PehnoWhite,
+                                border = BorderStroke(1.dp, PehnoCardBorder),
+                                shadowElevation = 3.dp,
+                                modifier = Modifier.fillMaxWidth().statusBarsPadding()
                             ) {
-                                // 1. Home
-                                NavigationBarItem(
-                                    selected = currentScreen == AppScreen.HOME,
-                                    onClick = { viewModel.navigateTo(AppScreen.HOME) },
-                                    icon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Home,
-                                            contentDescription = "Home"
-                                        )
-                                    },
-                                    label = { Text("Home", fontSize = 10.sp, fontWeight = if (currentScreen == AppScreen.HOME) FontWeight.Bold else FontWeight.Normal) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = GoldPrimary,
-                                        selectedTextColor = GoldPrimary,
-                                        unselectedIconColor = TextMuted,
-                                        unselectedTextColor = TextMuted,
-                                        indicatorColor = GoldContainer
-                                    ),
-                                    modifier = Modifier.testTag("nav_home")
-                                )
-
-                                // 2. Try On
-                                NavigationBarItem(
-                                    selected = currentScreen == AppScreen.TRY_ON,
-                                    onClick = { viewModel.navigateTo(AppScreen.TRY_ON) },
-                                    icon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Checkroom,
-                                            contentDescription = "Try On"
-                                        )
-                                    },
-                                    label = { Text("Try On", fontSize = 10.sp, fontWeight = if (currentScreen == AppScreen.TRY_ON) FontWeight.Bold else FontWeight.Normal) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = GoldPrimary,
-                                        selectedTextColor = GoldPrimary,
-                                        unselectedIconColor = TextMuted,
-                                        unselectedTextColor = TextMuted,
-                                        indicatorColor = GoldContainer
-                                    ),
-                                    modifier = Modifier.testTag("nav_try_on")
-                                )
-
-                                // 3. Full Look (Highlighted Gold Button)
-                                NavigationBarItem(
-                                    selected = currentScreen == AppScreen.FINAL_LOOK,
-                                    onClick = { viewModel.navigateTo(AppScreen.FINAL_LOOK) },
-                                    icon = {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // App Brand & Tagline
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.clickable { currentTab = PehnoMainTab.TRY_ON }
+                                    ) {
                                         Box(
                                             contentAlignment = Alignment.Center,
                                             modifier = Modifier
-                                                .size(34.dp)
-                                                .clip(CircleShape)
-                                                .background(GoldPrimary)
+                                                .size(38.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(PehnoGreenPrimary)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.AutoAwesome,
-                                                contentDescription = "Full Look",
-                                                tint = PureBlack,
+                                                imageVector = Icons.Default.Checkroom,
+                                                contentDescription = "Pehno",
+                                                tint = PehnoWhite,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = PehnoStrings.t("app_name", lang),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 20.sp,
+                                                color = PehnoGreenPrimary
+                                            )
+                                            Text(
+                                                text = PehnoStrings.t("tagline", lang),
+                                                fontSize = 10.sp,
+                                                color = PehnoTextSecondary,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    // Action buttons: Language toggle + Profile Edit icon
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        // Language Switcher (Urdu <-> English)
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = PehnoGreenLight,
+                                            border = BorderStroke(1.dp, PehnoGreenPrimary),
+                                            modifier = Modifier.clickable { viewModel.toggleLanguage() }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Language,
+                                                    contentDescription = null,
+                                                    tint = PehnoGreenPrimary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = if (lang == "ur") "English" else "اردو",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = PehnoGreenPrimary
+                                                )
+                                            }
+                                        }
+
+                                        // Profile Edit Icon
+                                        IconButton(
+                                            onClick = { viewModel.showProfileEdit.value = true },
+                                            modifier = Modifier
+                                                .size(38.dp)
+                                                .clip(CircleShape)
+                                                .background(PehnoSurface)
+                                                .border(1.dp, PehnoCardBorder, CircleShape)
+                                                .testTag("edit_profile_icon_btn")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Person,
+                                                contentDescription = "Edit Profile",
+                                                tint = PehnoBlack,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
+                                    }
+                                }
+                            }
+                        },
+                        bottomBar = {
+                            NavigationBar(
+                                containerColor = PehnoWhite,
+                                tonalElevation = 8.dp,
+                                modifier = Modifier.testTag("pehno_bottom_nav")
+                            ) {
+                                // 1. Model Try-On Tab
+                                NavigationBarItem(
+                                    selected = currentTab == PehnoMainTab.TRY_ON,
+                                    onClick = { currentTab = PehnoMainTab.TRY_ON },
+                                    icon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Checkroom,
+                                            contentDescription = "Model Try-On",
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     },
                                     label = {
                                         Text(
-                                            text = "Full Look",
-                                            fontWeight = FontWeight.Black,
-                                            color = GoldLight,
-                                            fontSize = 11.sp
+                                            text = PehnoStrings.t("tab_tryon", lang),
+                                            fontSize = 11.sp,
+                                            fontWeight = if (currentTab == PehnoMainTab.TRY_ON) FontWeight.Bold else FontWeight.Normal
                                         )
                                     },
                                     colors = NavigationBarItemDefaults.colors(
-                                        indicatorColor = Color.Transparent
+                                        selectedIconColor = PehnoGreenPrimary,
+                                        selectedTextColor = PehnoGreenPrimary,
+                                        unselectedIconColor = PehnoTextSecondary,
+                                        unselectedTextColor = PehnoTextSecondary,
+                                        indicatorColor = PehnoGreenLight
                                     ),
-                                    modifier = Modifier.testTag("nav_full_look")
+                                    modifier = Modifier.testTag("tab_nav_tryon")
                                 )
 
-                                // 4. My Gallery
+                                // 2. Marketplace Tab
                                 NavigationBarItem(
-                                    selected = currentScreen == AppScreen.GALLERY,
-                                    onClick = { viewModel.navigateTo(AppScreen.GALLERY) },
+                                    selected = currentTab == PehnoMainTab.MARKETPLACE,
+                                    onClick = { currentTab = PehnoMainTab.MARKETPLACE },
                                     icon = {
                                         Icon(
-                                            imageVector = Icons.Default.PhotoLibrary,
-                                            contentDescription = "My Gallery"
+                                            imageVector = Icons.Default.Storefront,
+                                            contentDescription = "Marketplace",
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     },
-                                    label = { Text("My Gallery", fontSize = 10.sp, fontWeight = if (currentScreen == AppScreen.GALLERY) FontWeight.Bold else FontWeight.Normal) },
+                                    label = {
+                                        Text(
+                                            text = PehnoStrings.t("tab_marketplace", lang),
+                                            fontSize = 11.sp,
+                                            fontWeight = if (currentTab == PehnoMainTab.MARKETPLACE) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
                                     colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = GoldPrimary,
-                                        selectedTextColor = GoldPrimary,
-                                        unselectedIconColor = TextMuted,
-                                        unselectedTextColor = TextMuted,
-                                        indicatorColor = GoldContainer
+                                        selectedIconColor = PehnoGreenPrimary,
+                                        selectedTextColor = PehnoGreenPrimary,
+                                        unselectedIconColor = PehnoTextSecondary,
+                                        unselectedTextColor = PehnoTextSecondary,
+                                        indicatorColor = PehnoGreenLight
                                     ),
-                                    modifier = Modifier.testTag("nav_gallery")
+                                    modifier = Modifier.testTag("tab_nav_marketplace")
                                 )
 
-                                // 5. Near Me
+                                // 3. Sell Dress Tab
                                 NavigationBarItem(
-                                    selected = currentScreen == AppScreen.NEAR_ME,
-                                    onClick = { viewModel.navigateTo(AppScreen.NEAR_ME) },
+                                    selected = currentTab == PehnoMainTab.SELL_DRESS,
+                                    onClick = { currentTab = PehnoMainTab.SELL_DRESS },
                                     icon = {
                                         Icon(
-                                            imageVector = Icons.Default.LocationOn,
-                                            contentDescription = "Near Me"
+                                            imageVector = Icons.Default.AddBusiness,
+                                            contentDescription = "Sell Dress",
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     },
-                                    label = { Text("Near Me", fontSize = 10.sp, fontWeight = if (currentScreen == AppScreen.NEAR_ME) FontWeight.Bold else FontWeight.Normal) },
+                                    label = {
+                                        Text(
+                                            text = PehnoStrings.t("tab_sell", lang),
+                                            fontSize = 11.sp,
+                                            fontWeight = if (currentTab == PehnoMainTab.SELL_DRESS) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
                                     colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = GoldPrimary,
-                                        selectedTextColor = GoldPrimary,
-                                        unselectedIconColor = TextMuted,
-                                        unselectedTextColor = TextMuted,
-                                        indicatorColor = GoldContainer
+                                        selectedIconColor = PehnoGreenPrimary,
+                                        selectedTextColor = PehnoGreenPrimary,
+                                        unselectedIconColor = PehnoTextSecondary,
+                                        unselectedTextColor = PehnoTextSecondary,
+                                        indicatorColor = PehnoGreenLight
                                     ),
-                                    modifier = Modifier.testTag("nav_near_me")
+                                    modifier = Modifier.testTag("tab_nav_sell")
                                 )
                             }
                         }
@@ -216,156 +283,23 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .padding(innerPadding)
                         ) {
-                            when (currentScreen) {
-                                AppScreen.HOME -> HomeScreen(
+                            when (currentTab) {
+                                PehnoMainTab.TRY_ON -> ModelTryOnScreen(
                                     viewModel = viewModel,
-                                    onNavigateToCategory = {
-                                        viewModel.navigateTo(AppScreen.TRY_ON)
-                                    },
-                                    onOpenEditProfile = {
-                                        viewModel.navigateTo(AppScreen.ONBOARDING_FORM)
-                                    }
+                                    onNavigateToMarketplace = { currentTab = PehnoMainTab.MARKETPLACE }
                                 )
-                                AppScreen.TRY_ON -> TryOnScreen(viewModel = viewModel)
-                                AppScreen.FINAL_LOOK -> FinalLookScreen(
+                                PehnoMainTab.MARKETPLACE -> MarketplaceScreen(
                                     viewModel = viewModel,
-                                    onNavigateToCategory = {
-                                        viewModel.navigateTo(AppScreen.TRY_ON)
-                                    },
-                                    onNavigateToNearMe = {
-                                        viewModel.navigateTo(AppScreen.NEAR_ME)
-                                    }
+                                    onNavigateToTryOn = { currentTab = PehnoMainTab.TRY_ON },
+                                    onOpenSellForm = { currentTab = PehnoMainTab.SELL_DRESS }
                                 )
-                                AppScreen.GALLERY -> GalleryClosetScreen(viewModel = viewModel)
-                                AppScreen.NEAR_ME -> NearMeScreen(viewModel = viewModel)
-                                AppScreen.ONBOARDING_FORM -> SetupScreen(
+                                PehnoMainTab.SELL_DRESS -> SellDressScreen(
                                     viewModel = viewModel,
-                                    isEditing = true,
-                                    onCompleted = { viewModel.navigateTo(AppScreen.HOME) }
-                                )
-                                AppScreen.ONBOARDING_CROWN -> OnboardingCrownScreen(
-                                    onStartClick = { viewModel.navigateTo(AppScreen.ONBOARDING_FORM) }
+                                    onDressPublished = { currentTab = PehnoMainTab.MARKETPLACE }
                                 )
                             }
                         }
                     }
-                }
-
-                // Suitability Dialog
-                if (suitabilityState && activeItem != null) {
-                    val item = activeItem!!
-                    val h = userProfile?.heightFt ?: viewModel.formHeightFt.collectAsState().value
-                    val score by viewModel.activeSuitabilityScore.collectAsState()
-                    val reason by viewModel.activeSuitabilityReason.collectAsState()
-
-                    AlertDialog(
-                        onDismissRequest = { viewModel.showSuitabilityDialog.value = false },
-                        containerColor = DarkSurface,
-                        title = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = GoldPrimary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Suit Score: $score% for ${"%.1f".format(h)}ft", fontWeight = FontWeight.Bold, color = GoldLight)
-                            }
-                        },
-                        text = {
-                            Column {
-                                Text(item.name, fontWeight = FontWeight.Bold, color = PureWhite, fontSize = 14.sp)
-                                Text(item.urduName, color = GoldLight, fontSize = 12.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(reason, color = TextMuted, fontSize = 12.sp, lineHeight = 16.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Recommendation: ${item.heightTip}", color = EmeraldAccent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    viewModel.selectForFinalLook(item)
-                                    viewModel.showSuitabilityDialog.value = false
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = PureBlack)
-                            ) {
-                                Text("Add to Final Look", fontWeight = FontWeight.Bold)
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { viewModel.showSuitabilityDialog.value = false }) {
-                                Text("Close", color = TextMuted)
-                            }
-                        }
-                    )
-                }
-
-                // Weight Preview Modal
-                if (showWeight) {
-                    val curW = userProfile?.weightKg ?: viewModel.formWeightKg.collectAsState().value
-                    val curH = userProfile?.heightFt ?: viewModel.formHeightFt.collectAsState().value
-                    WeightPreviewDialog(
-                        currentWeightKg = curW,
-                        targetWeightKg = targetWeight,
-                        userHeightFt = curH,
-                        onWeightChange = { viewModel.targetWeightKg.value = it },
-                        onDismiss = { viewModel.showWeightPreviewModal.value = false }
-                    )
-                }
-
-                // Couple Matching Modal
-                if (showCouple) {
-                    CoupleMatchingDialog(
-                        occasion = coupleOccasion,
-                        onOccasionChange = { viewModel.coupleOccasion.value = it },
-                        onDismiss = { viewModel.showCoupleModal.value = false }
-                    )
-                }
-
-                // Catwalk Video Modal
-                if (showCatwalk) {
-                    val activeLook = viewModel.activeCatwalkLook.value ?: viewModel.savedLooks.collectAsState().value.firstOrNull()
-                    CatwalkVideoDialog(
-                        isPlaying = isCatwalkPlaying,
-                        onTogglePlay = { viewModel.isCatwalkPlaying.value = !isCatwalkPlaying },
-                        onDownloadVideo = {
-                            if (activeLook != null) {
-                                viewModel.exportCatwalkVideo(activeLook) { success, path ->
-                                    viewModel.userNotice.value = if (success) "REAL Catwalk Video Downloaded (.mp4): $path" else "Failed to export video."
-                                }
-                            } else {
-                                viewModel.userNotice.value = "Catwalk Video Downloaded (1080x1920 MP4)!"
-                            }
-                            viewModel.showCatwalkModal.value = false
-                        },
-                        onDismiss = { viewModel.showCatwalkModal.value = false }
-                    )
-                }
-
-                // Meme Comparison Modal (Shaadi Se Pehle vs Baad)
-                if (showMeme) {
-                    MemeComparisonDialog(
-                        sliderPos = memeSlider,
-                        onSliderChange = { viewModel.memeSliderPosition.value = it },
-                        onDismiss = { viewModel.showMemeModal.value = false }
-                    )
-                }
-
-                // Interstitial Ad
-                if (finalLookState.showInterstitialAd) {
-                    InterstitialAdDialog(
-                        onDismiss = { viewModel.dismissInterstitialAd() },
-                        onUpgradeToPremium = {
-                            viewModel.dismissInterstitialAd()
-                            viewModel.showPremiumDialog.value = true
-                        }
-                    )
-                }
-
-                // VIP Premium Dialog (Rs 299/month)
-                if (showPremium) {
-                    PremiumUpgradeDialog(
-                        isCurrentPremium = userProfile?.isPremium ?: false,
-                        onDismiss = { viewModel.showPremiumDialog.value = false },
-                        onActivate = { isVIP -> viewModel.togglePremium(isVIP) }
-                    )
                 }
             }
         }

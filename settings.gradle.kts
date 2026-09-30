@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "AI NAP"
+rootProject.name = "Pehno"
 
 include(":app")

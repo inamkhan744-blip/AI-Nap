@@ -16,6 +16,19 @@ class ExampleRobolectricTest {
   fun `read string from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("AI NAP", appName)
+    assertEquals("Pehno", appName)
+  }
+
+  @Test
+  fun `test pehno translations and catalog`() {
+    val urduTitle = com.example.util.PehnoStrings.t("app_name", "ur")
+    val enTitle = com.example.util.PehnoStrings.t("app_name", "en")
+    assertEquals("پہنو", urduTitle)
+    assertEquals("Pehno", enTitle)
+
+    val maleItems = com.example.data.model.FashionCatalog.getItemsForPehnoCategory(
+        com.example.data.model.PehnoCategory.DRESS, "Male"
+    )
+    assert(maleItems.isNotEmpty())
   }
 }
