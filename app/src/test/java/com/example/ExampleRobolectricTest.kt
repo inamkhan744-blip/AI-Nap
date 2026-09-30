@@ -31,4 +31,14 @@ class ExampleRobolectricTest {
     )
     assert(maleItems.isNotEmpty())
   }
+
+  @Test
+  fun `test portrait processing and file generation`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val testBitmap = android.graphics.Bitmap.createBitmap(300, 400, android.graphics.Bitmap.Config.ARGB_8888)
+    val processedPath = com.example.util.PortraitProcessor.processAndSavePortrait(context, testBitmap)
+    assert(processedPath != null)
+    val file = java.io.File(processedPath!!)
+    assert(file.exists() && file.length() > 0)
+  }
 }

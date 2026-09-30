@@ -1,5 +1,11 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,14 +23,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FashionViewModel
 import com.example.util.PehnoStrings
+import com.example.util.PortraitProcessor
 
 @Composable
 fun ProfileSetupScreen(
@@ -40,6 +51,41 @@ fun ProfileSetupScreen(
     var weightKg by remember { mutableFloatStateOf(userProfile?.weightKg ?: 70f) }
     var heightFt by remember { mutableFloatStateOf(userProfile?.heightFt ?: 5.8f) }
     var selectedLang by remember { mutableStateOf(lang) }
+    var photoUri by remember { mutableStateOf(userProfile?.photoUri) }
+
+    val context = LocalContext.current
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            val processedPath = PortraitProcessor.processAndSavePortrait(context, bitmap)
+            if (processedPath != null) {
+                photoUri = processedPath
+                viewModel.formPhotoUri.value = processedPath
+                viewModel.userNotice.value = if (selectedLang == "ur") "پورٹریٹ کامیابی سے لگ گیا!" else "Portrait captured and processed successfully!"
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraLauncher.launch(null)
+        } else {
+            viewModel.userNotice.value = if (selectedLang == "ur") "کیمرہ کی اجازت درکار ہے" else "Camera permission required"
+        }
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            photoUri = it.toString()
+            viewModel.formPhotoUri.value = it.toString()
+        }
+    }
 
     val heightCm = (heightFt * 30.48f).toInt()
 
@@ -353,6 +399,123 @@ fun ProfileSetupScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 5. User Face Photo for Model (Apna Chehra Lagayein)
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = PehnoSurface,
+                border = BorderStroke(1.dp, PehnoCardBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (selectedLang == "ur") "اپنا چہرہ لگائیں (Selfie / Face Photo)" else "Add Your Face for Model",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = PehnoBlack
+                            )
+                            Text(
+                                text = if (selectedLang == "ur") "ماڈل پر آپ کا اپنا چہرہ نظر آئے گا" else "Your photo will be placed on the model's head",
+                                fontSize = 11.sp,
+                                color = PehnoTextSecondary
+                            )
+                        }
+
+                        if (!photoUri.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, PehnoGreenPrimary, CircleShape)
+                            ) {
+                                AsyncImage(
+                                    model = photoUri,
+                                    contentDescription = "User Face",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Capture Portrait Button
+                        Button(
+                            onClick = {
+                                val hasCam = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.CAMERA
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (hasCam) {
+                                    cameraLauncher.launch(null)
+                                } else {
+                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PehnoGreenPrimary,
+                                contentColor = PehnoWhite
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1.15f)
+                                .height(48.dp)
+                                .testTag("capture_portrait_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = "Capture Portrait",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (selectedLang == "ur") "پورٹریٹ کیمرہ" else "Capture Portrait",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        // From Gallery Button
+                        OutlinedButton(
+                            onClick = { photoPickerLauncher.launch("image/*") },
+                            border = BorderStroke(1.5.dp, PehnoGreenPrimary),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = PehnoGreenPrimary
+                            ),
+                            modifier = Modifier
+                                .weight(0.95f)
+                                .height(48.dp)
+                                .testTag("upload_user_face_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoLibrary,
+                                contentDescription = "Gallery",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (selectedLang == "ur") "گیلری سے" else "From Gallery",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // BIG START BUTTON (High accessibility)
@@ -363,7 +526,8 @@ fun ProfileSetupScreen(
                         gender = gender,
                         weightKg = weightKg,
                         heightFt = heightFt,
-                        language = selectedLang
+                        language = selectedLang,
+                        photoUri = photoUri
                     )
                     onCompleted()
                 },

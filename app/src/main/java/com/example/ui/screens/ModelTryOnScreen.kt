@@ -1,7 +1,12 @@
 package com.example.ui.screens
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -19,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.model.FashionCatalog
@@ -60,6 +68,48 @@ fun ModelTryOnScreen(
     val gender = userProfile?.gender ?: viewModel.formGender.collectAsState().value
     val weightKg = userProfile?.weightKg ?: viewModel.formWeightKg.collectAsState().value
     val heightFt = userProfile?.heightFt ?: viewModel.formHeightFt.collectAsState().value
+    val userPhotoUri = userProfile?.photoUri ?: viewModel.formPhotoUri.collectAsState().value
+
+    // Face Photo Picker Launcher
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.updateUserPhotoUri(it.toString()) }
+    }
+
+    var showFaceOptionsSheet by remember { mutableStateOf(false) }
+
+    // Camera Launcher for Portrait Capture
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            viewModel.processAndSetCameraPortrait(context, bitmap)
+        }
+    }
+
+    // Camera Permission Launcher
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraLauncher.launch(null)
+        } else {
+            viewModel.userNotice.value = if (lang == "ur") "کیمرہ کی اجازت درکار ہے" else "Camera permission required to capture portrait"
+        }
+    }
+
+    val launchCameraForPortrait = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            cameraLauncher.launch(null)
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     // Layers
     val dress by viewModel.selectedDress.collectAsState()
@@ -83,10 +133,19 @@ fun ModelTryOnScreen(
         } ?: emptyList()
     }
 
-    // Weight & Height model auto-scaling
-    val widthScale = (0.90f + (weightKg - 40f) / 160f).coerceIn(0.85f, 1.25f)
+    // Dynamic Weight & Height Body Auto-Scaling
+    val widthScale = (0.76f + ((weightKg - 40f) / 80f) * 0.50f).coerceIn(0.74f, 1.35f)
+    val heightScale = (heightFt / 5.5f).coerceIn(0.85f, 1.25f)
+    val modelBoxHeight = (430 * heightScale).dp
     val shoeBoost = shoes?.heightBoostInches ?: 0f
     val effectiveHeight = heightFt + (shoeBoost / 12f)
+
+    val bodyTypeLabel = when {
+        weightKg < 55 -> if (lang == "ur") "دبلا پتلا (Slim Fit)" else "Slim Fit"
+        weightKg < 75 -> if (lang == "ur") "متوازن (Medium / Athletic)" else "Medium Athletic"
+        weightKg < 95 -> if (lang == "ur") "بھاری جسم (Chubby / Broad)" else "Chubby / Broad"
+        else -> if (lang == "ur") "ہیوی سائز (Plus Size / Heavy)" else "Heavy Plus Size"
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(PehnoWhite)) {
         Column(
@@ -96,49 +155,87 @@ fun ModelTryOnScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Bar Commission & Quick Order / Download Banner
+            // Top Bar: Commission & User Face Action
             Surface(
                 color = PehnoGreenLight,
                 border = BorderStroke(1.dp, PehnoGreenPrimary.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp).fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = null,
-                            tint = PehnoGreenPrimary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = null,
+                                tint = PehnoGreenPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = PehnoStrings.t("commission_notice", lang),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PehnoGreenDark
+                            )
+                        }
                         Text(
-                            text = PehnoStrings.t("commission_notice", lang),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PehnoGreenDark
+                            text = "جسم: ${weightKg.toInt()}kg ($bodyTypeLabel) • قد: ${"%.1f".format(heightFt)}ft ${if (shoeBoost > 0) "(+${shoeBoost.toInt()}\" جوتا)" else ""}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = PehnoTextSecondary
                         )
                     }
 
-                    Text(
-                        text = "${"%.1f".format(effectiveHeight)}ft (+${shoeBoost.toInt()}\")",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PehnoGreenPrimary
-                    )
+                    // Face Upload Button
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = PehnoWhite,
+                        border = BorderStroke(1.dp, PehnoGreenPrimary),
+                        modifier = Modifier.clickable {
+                            if (userPhotoUri.isNullOrBlank()) {
+                                launchCameraForPortrait()
+                            } else {
+                                showFaceOptionsSheet = true
+                            }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (userPhotoUri.isNullOrBlank()) Icons.Default.CameraAlt else Icons.Default.Face,
+                                contentDescription = "Face",
+                                tint = PehnoGreenPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (userPhotoUri.isNullOrBlank()) {
+                                    if (lang == "ur") "پورٹریٹ لیں" else "Capture Portrait"
+                                } else {
+                                    if (lang == "ur") "چہرہ تبدیل کریں" else "Change Face"
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PehnoGreenPrimary
+                            )
+                        }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 1. CENTER 3D/2D HUMAN MODEL VIEWPORT
+            // 1. CENTER 3D/2D HUMAN MODEL VIEWPORT (With Dynamic Scale & Superimposed Face)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(420.dp)
+                    .height(modelBoxHeight)
                     .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(22.dp))
                     .background(PehnoSurface)
@@ -195,14 +292,83 @@ fun ModelTryOnScreen(
                         )
                     }
 
-                    // Layer 2: Top subtle gradient
+                    // Layer 2: USER'S REAL FACE SUPERIMPOSED ON MODEL (When facing front)
+                    if (!isBackFacing) {
+                        if (!userPhotoUri.isNullOrBlank()) {
+                            // User's real face framed accurately on the head/face region
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 24.dp)
+                                    .size(width = 88.dp, height = 106.dp)
+                                    .clip(RoundedCornerShape(48.dp))
+                                    .background(PehnoSurface)
+                                    .border(2.5.dp, PehnoGreenPrimary, RoundedCornerShape(48.dp))
+                                    .clickable { showFaceOptionsSheet = true }
+                            ) {
+                                AsyncImage(
+                                    model = userPhotoUri,
+                                    contentDescription = "User Face on Model",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+
+                                // Corner indicator badge
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .background(PehnoBlack.copy(alpha = 0.7f))
+                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = if (lang == "ur") "آپ کا چہرہ" else "You",
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PehnoWhite
+                                    )
+                                }
+                            }
+                        } else {
+                            // Prompt to tap and capture portrait on model
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = PehnoBlack.copy(alpha = 0.72f),
+                                border = BorderStroke(1.5.dp, PehnoGreenPrimary),
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 34.dp)
+                                    .clickable { launchCameraForPortrait() }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CameraAlt,
+                                        contentDescription = "Capture Portrait",
+                                        tint = PehnoGreenLight,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (lang == "ur") "پورٹریٹ لیں (Capture Portrait)" else "Capture Portrait",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PehnoWhite
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Layer 3: Subtle gradient overlay for contrast
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(
                                 Brush.verticalGradient(
                                     listOf(
-                                        Color.Black.copy(alpha = 0.35f),
+                                        Color.Black.copy(alpha = 0.25f),
                                         Color.Transparent,
                                         Color.Black.copy(alpha = 0.65f)
                                     )
@@ -223,7 +389,7 @@ fun ModelTryOnScreen(
                             color = PehnoWhite
                         )
                         Text(
-                            text = dress?.storeSource ?: "All Pakistan Store",
+                            text = "${dress?.storeSource ?: "All Pakistan Store"} • Rs. ${dress?.priceRs ?: 4500}",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = PehnoGreenLight
@@ -272,6 +438,119 @@ fun ModelTryOnScreen(
                         fontWeight = FontWeight.Black,
                         color = PehnoWhite
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Dedicated Face & 3D Model Overlay Action Card
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = PehnoSurface,
+                border = BorderStroke(1.dp, PehnoCardBorder),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Face,
+                                contentDescription = null,
+                                tint = PehnoGreenPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = PehnoStrings.t("face_overlay_title", lang),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PehnoBlack
+                            )
+                        }
+
+                        if (!userPhotoUri.isNullOrBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = PehnoGreenLight,
+                                border = BorderStroke(1.dp, PehnoGreenPrimary.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = if (lang == "ur") "چہرہ ماڈل پر فعال ہے" else "Face Active on 3D Model",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PehnoGreenPrimary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Button 1: Capture Portrait (Camera)
+                        Button(
+                            onClick = { launchCameraForPortrait() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PehnoGreenPrimary,
+                                contentColor = PehnoWhite
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1.25f)
+                                .height(46.dp)
+                                .testTag("capture_portrait_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = "Capture Portrait",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (lang == "ur") "پورٹریٹ کیمرہ" else "Capture Portrait",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        // Button 2: Gallery Picker
+                        OutlinedButton(
+                            onClick = { photoPickerLauncher.launch("image/*") },
+                            border = BorderStroke(1.5.dp, PehnoGreenPrimary),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = PehnoGreenPrimary
+                            ),
+                            modifier = Modifier
+                                .weight(0.95f)
+                                .height(46.dp)
+                                .testTag("upload_user_face_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoLibrary,
+                                contentDescription = "Gallery",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (lang == "ur") "گیلری سے" else "From Gallery",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
 
@@ -354,7 +633,7 @@ fun ModelTryOnScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.RotateRight, contentDescription = null, tint = PehnoGreenPrimary, modifier = Modifier.size(20.dp))
+                            Icon(imageVector = Icons.AutoMirrored.Filled.RotateRight, contentDescription = null, tint = PehnoGreenPrimary, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = PehnoStrings.t("rotate_360", lang),
@@ -389,7 +668,169 @@ fun ModelTryOnScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 3. LAYER SUMMARY PILLS (What is currently on model)
+            // 3. STYLE ADVISOR & VERDICT: KIA ACHA LAGTA HAI / KIA ACHA NAHI LAGTA HAI
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = PehnoWhite,
+                border = BorderStroke(1.5.dp, PehnoGreenPrimary),
+                shadowElevation = 3.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    // Header with Score & Voice Speaker
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = if (lang == "ur") "سٹائل تجزیہ: کیا اچھا لگتا ہے اور کیا نہیں" else "Style Evaluation: What Suits You & What Doesn't",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black,
+                                color = PehnoBlack
+                            )
+                            Text(
+                                text = "Aap ki body (${weightKg.toInt()}kg, ${"%.1f".format(heightFt)}ft) ke mutabiq",
+                                fontSize = 11.sp,
+                                color = PehnoTextSecondary
+                            )
+                        }
+
+                        // Match score badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(PehnoGreenPrimary)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "97% Match",
+                                color = PehnoWhite,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Green box: KIA ACHA LAGTA HAI (What looks great)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = PehnoGreenLight,
+                        border = BorderStroke(1.dp, PehnoGreenPrimary.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = PehnoGreenPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (lang == "ur") "✅ کیا اچھا لگتا ہے (What Looks Great):" else "✅ What Looks Great on You:",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = PehnoGreenDark
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "• ڈریس فال: ${dress?.name ?: "Jora"} کا vertical cut aap ke ${"%.1f".format(heightFt)}ft qad par shaandar balance deta hai.\n" +
+                                       "• جوتا لفٹ: ${shoes?.name ?: "Joota"} se aap ko +${shoeBoost.toInt()}\" ka natural lift mil raha hai (${"%.2f".format(effectiveHeight)}ft look).\n" +
+                                       "• چہرہ و ہیئر: ${hair?.name ?: "Hairstyle"} aap ke collar ke sath royal posture banata hai.",
+                                fontSize = 11.sp,
+                                color = PehnoBlack,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Yellow/Orange box: KIA ACHA NAHI LAGTA / EHTIYAAT (What to improve)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = PehnoSurface,
+                        border = BorderStroke(1.dp, Color(0xFFEAB308)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.WarningAmber,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (lang == "ur") "⚠️ کیا اچھا نہیں لگتا / احتیاط کریں:" else "⚠️ What to Avoid / Fashion Tips:",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFB45309)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            val adviceText = if (weightKg > 82) {
+                                "• وزن کے مطابق: ${weightKg.toInt()}kg par broad horizontal prints se bachein; straight dark falls aap ko mazeed smart dikhayenge.\n" +
+                                "• فٹنگ: Bohat tight fitting ke bajaye relaxed regular drape chunein."
+                            } else if (heightFt < 5.4f) {
+                                "• قد کے مطابق: Floor-length heavy flares ke bajaye shorter waistcoats aur 2\" heel footwear choose karein.\n" +
+                                "• گلا: Stand ban collar gardan ko lamba frame deta hai."
+                            } else {
+                                "• متوازن جسم: Oversized baggy fitting se bachein taake tailored cuts aap ki height aur chest line ko ubhar sakein."
+                            }
+                            Text(
+                                text = adviceText,
+                                fontSize = 11.sp,
+                                color = PehnoBlack,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Voice Stylist Button (Baji voice advice)
+                    Button(
+                        onClick = {
+                            val speechText = if (lang == "ur") {
+                                "Zabardast! Aap ke ${"%.1f".format(heightFt)}ft qad aur ${weightKg.toInt()}kg par yeh ${dress?.name} bohot shaandar jach raha hai. Footwear se aap ko ${shoeBoost.toInt()} inch ka height boost mil raha hai."
+                            } else {
+                                "Great look! On your ${"%.1f".format(heightFt)}ft height and ${weightKg.toInt()}kg body, this ${dress?.name} fits perfectly with a ${shoeBoost.toInt()} inch shoe lift."
+                            }
+                            viewModel.voiceStylist.speak(speechText)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PehnoGreenLight,
+                            contentColor = PehnoGreenPrimary
+                        ),
+                        border = BorderStroke(1.dp, PehnoGreenPrimary),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().height(36.dp)
+                    ) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (lang == "ur") "🔊 باجی کی زبانی مشورہ سنیں (Listen)" else "🔊 Listen to Stylist Advice",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 4. LAYER SUMMARY PILLS (What is currently on model)
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = PehnoSurface,
@@ -659,6 +1100,141 @@ fun ModelTryOnScreen(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+
+        // 7. BOTTOM SHEET FOR FACE PORTRAIT OPTIONS
+        if (showFaceOptionsSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showFaceOptionsSheet = false },
+                containerColor = PehnoWhite,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = if (lang == "ur") "ماڈل کے چہرے کا انتخاب" else "Model Face & Portrait",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                color = PehnoBlack
+                            )
+                            Text(
+                                text = if (lang == "ur") "کیمرہ سے پورٹریٹ لیں یا گیلری سے لگائیں" else "Capture portrait using camera or choose from gallery",
+                                fontSize = 12.sp,
+                                color = PehnoTextSecondary
+                            )
+                        }
+                        IconButton(onClick = { showFaceOptionsSheet = false }) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Option 1: Capture Portrait (Camera)
+                    Button(
+                        onClick = {
+                            showFaceOptionsSheet = false
+                            launchCameraForPortrait()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PehnoGreenPrimary,
+                            contentColor = PehnoWhite
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("sheet_capture_portrait_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Camera",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (lang == "ur") "کیمرہ سے پورٹریٹ لیں (Capture Portrait)" else "Capture Portrait with Camera",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Option 2: Gallery Picker
+                    OutlinedButton(
+                        onClick = {
+                            showFaceOptionsSheet = false
+                            photoPickerLauncher.launch("image/*")
+                        },
+                        border = BorderStroke(1.5.dp, PehnoGreenPrimary),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = PehnoGreenPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("sheet_gallery_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = "Gallery",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (lang == "ur") "گیلری سے تصویر منتخب کریں" else "Choose from Photo Gallery",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (!userPhotoUri.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Option 3: Remove face
+                        OutlinedButton(
+                            onClick = {
+                                showFaceOptionsSheet = false
+                                viewModel.updateUserPhotoUri("")
+                            },
+                            border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFEF4444)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("sheet_remove_face_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Remove",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (lang == "ur") "چہرہ ہٹائیں (Remove Face)" else "Remove Face from Model",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
         }

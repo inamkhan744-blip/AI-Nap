@@ -31,6 +31,11 @@ object PehnoStrings {
             "order_now" -> if (isUrdu) "آرڈر کرو / Order Now" else "Order Now"
             "commission_notice" -> if (isUrdu) "10% کمیشن پہنو ایپ کو جائے گا" else "10% Commission will go to Pehno App"
             "layer_by_layer" -> if (isUrdu) "ماڈل تیار کریں (ایک ایک کر کے چیزیں لگائیں)" else "Layer-by-Layer Dress Up"
+            "capture_portrait" -> if (isUrdu) "پورٹریٹ لیں / Capture Portrait" else "Capture Portrait"
+            "choose_gallery" -> if (isUrdu) "گیلری سے تصویر / Gallery" else "From Gallery"
+            "face_overlay_title" -> if (isUrdu) "ماڈل کے چہرے پر آپ کی تصویر" else "Face Overlay on 3D Model"
+            "retake_portrait" -> if (isUrdu) "نیا پورٹریٹ لیں" else "Capture New Portrait"
+            "remove_face" -> if (isUrdu) "چہرہ ہٹائیں" else "Remove Face"
             
             // Bottom Tabs
             "tab_tryon" -> if (isUrdu) "ماڈل ٹرائی آن" else "Model Try-On"

@@ -282,7 +282,7 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
         currentLanguage.value = if (currentLanguage.value == "ur") "en" else "ur"
     }
 
-    fun saveInitialProfile(name: String, gender: String, weightKg: Float, heightFt: Float, language: String) {
+    fun saveInitialProfile(name: String, gender: String, weightKg: Float, heightFt: Float, language: String, photoUri: String? = null) {
         viewModelScope.launch {
             val entity = UserProfileEntity(
                 id = 1,
@@ -291,6 +291,7 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                 heightFt = heightFt,
                 weightKg = weightKg,
                 language = language,
+                photoUri = photoUri ?: formPhotoUri.value,
                 isSetupComplete = true
             )
             repository.saveProfile(entity)
@@ -298,9 +299,44 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
             formGender.value = entity.gender
             formWeightKg.value = entity.weightKg
             formHeightFt.value = entity.heightFt
+            formPhotoUri.value = entity.photoUri
             currentLanguage.value = entity.language
             initializeDefaultEnsemble(gender)
             _currentScreen.value = AppScreen.HOME
+        }
+    }
+
+    fun updateUserPhotoUri(uri: String) {
+        viewModelScope.launch {
+            formPhotoUri.value = uri
+            val current = userProfile.value
+            val entity = if (current != null) {
+                current.copy(photoUri = uri)
+            } else {
+                UserProfileEntity(
+                    id = 1,
+                    gender = formGender.value,
+                    heightFt = formHeightFt.value,
+                    weightKg = formWeightKg.value,
+                    language = currentLanguage.value,
+                    photoUri = uri,
+                    isSetupComplete = true
+                )
+            }
+            repository.saveProfile(entity)
+            userNotice.value = if (currentLanguage.value == "ur") "آپ کا چہرہ ماڈل پر لگ گیا ہے!" else "Your face is now placed on the model!"
+        }
+    }
+
+    fun processAndSetCameraPortrait(context: android.content.Context, bitmap: Bitmap) {
+        viewModelScope.launch {
+            val processedPath = com.example.util.PortraitProcessor.processAndSavePortrait(context, bitmap)
+            if (processedPath != null) {
+                updateUserPhotoUri(processedPath)
+                userNotice.value = if (currentLanguage.value == "ur") "پورٹریٹ کامیابی سے ماڈل پر لگ گیا!" else "Portrait captured and overlaid on model!"
+            } else {
+                userNotice.value = if (currentLanguage.value == "ur") "تصویر پروسیس کرنے میں خرابی" else "Failed to process camera portrait"
+            }
         }
     }
 
@@ -710,6 +746,36 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                     canvas.drawBitmap(modelBitmap, srcRect, dstRect, null)
                 } else {
                     canvas.drawColor(AndroidColor.BLACK)
+                }
+
+                // Draw user's own face on model's head if available
+                val userPhoto = formPhotoUri.value ?: userProfile.value?.photoUri
+                if (!userPhoto.isNullOrBlank()) {
+                    try {
+                        val userFaceBitmap = if (userPhoto.startsWith("content://") || userPhoto.startsWith("file://")) {
+                            val inputStream = context.contentResolver.openInputStream(android.net.Uri.parse(userPhoto))
+                            BitmapFactory.decodeStream(inputStream)
+                        } else if (File(userPhoto).exists()) {
+                            BitmapFactory.decodeFile(userPhoto)
+                        } else null
+
+                        if (userFaceBitmap != null) {
+                            val faceWidth = 240
+                            val faceHeight = 290
+                            val faceLeft = (width - faceWidth) / 2
+                            val faceTop = 230
+                            val faceDst = Rect(faceLeft, faceTop, faceLeft + faceWidth, faceTop + faceHeight)
+                            canvas.drawBitmap(userFaceBitmap, Rect(0, 0, userFaceBitmap.width, userFaceBitmap.height), faceDst, Paint(Paint.ANTI_ALIAS_FLAG))
+
+                            val faceBorder = Paint().apply {
+                                color = AndroidColor.parseColor("#0F766E")
+                                style = Paint.Style.STROKE
+                                strokeWidth = 8f
+                                isAntiAlias = true
+                            }
+                            canvas.drawRoundRect(RectF(faceDst), 120f, 120f, faceBorder)
+                        }
+                    } catch (_: Exception) {}
                 }
 
                 // Dark gradients top and bottom
