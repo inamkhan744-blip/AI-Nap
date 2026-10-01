@@ -330,7 +330,17 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
 
     fun processAndSetCameraPortrait(context: android.content.Context, bitmap: Bitmap) {
         viewModelScope.launch {
-            val processedPath = com.example.util.PortraitProcessor.processAndSavePortrait(context, bitmap)
+            val h = userProfile.value?.heightFt ?: formHeightFt.value
+            val w = userProfile.value?.weightKg ?: formWeightKg.value
+            val g = userProfile.value?.gender ?: formGender.value
+            val processedPath = com.example.util.FaceOverlayService.processAndMapFace(
+                context = context,
+                rawBitmap = bitmap,
+                heightFt = h,
+                weightKg = w,
+                gender = g
+            ) ?: com.example.util.PortraitProcessor.processAndSavePortrait(context, bitmap)
+
             if (processedPath != null) {
                 updateUserPhotoUri(processedPath)
                 userNotice.value = if (currentLanguage.value == "ur") "پورٹریٹ کامیابی سے ماڈل پر لگ گیا!" else "Portrait captured and overlaid on model!"
@@ -760,10 +770,11 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                         } else null
 
                         if (userFaceBitmap != null) {
-                            val faceWidth = 240
-                            val faceHeight = 290
+                            val alignment = com.example.util.FaceOverlayService.calculateHeadAlignment(h, w, gender)
+                            val faceWidth = (240 * alignment.scaleFactorX).toInt()
+                            val faceHeight = (290 * alignment.scaleFactorY).toInt()
                             val faceLeft = (width - faceWidth) / 2
-                            val faceTop = 230
+                            val faceTop = (230 * (2.0f - alignment.scaleFactorY * 0.85f).coerceIn(0.85f, 1.25f)).toInt()
                             val faceDst = Rect(faceLeft, faceTop, faceLeft + faceWidth, faceTop + faceHeight)
                             canvas.drawBitmap(userFaceBitmap, Rect(0, 0, userFaceBitmap.width, userFaceBitmap.height), faceDst, Paint(Paint.ANTI_ALIAS_FLAG))
 

@@ -36,6 +36,7 @@ import com.example.ui.theme.*
 import com.example.ui.viewmodel.FashionViewModel
 import com.example.util.PehnoStrings
 import com.example.util.PortraitProcessor
+import com.example.util.FaceOverlayService
 
 @Composable
 fun ProfileSetupScreen(
@@ -59,7 +60,13 @@ fun ProfileSetupScreen(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         if (bitmap != null) {
-            val processedPath = PortraitProcessor.processAndSavePortrait(context, bitmap)
+            val processedPath = FaceOverlayService.processAndMapFace(
+                context = context,
+                rawBitmap = bitmap,
+                heightFt = heightFt,
+                weightKg = weightKg,
+                gender = gender
+            ) ?: PortraitProcessor.processAndSavePortrait(context, bitmap)
             if (processedPath != null) {
                 photoUri = processedPath
                 viewModel.formPhotoUri.value = processedPath

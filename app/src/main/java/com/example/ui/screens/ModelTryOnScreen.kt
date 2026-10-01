@@ -51,6 +51,7 @@ import com.example.data.model.FashionCatalog
 import com.example.data.model.FashionItem
 import com.example.data.model.PehnoCategory
 import com.example.ui.theme.*
+import com.example.ui.components.ModelFaceOverlayComponent
 import com.example.ui.viewmodel.FashionViewModel
 import com.example.util.PehnoStrings
 import java.io.File
@@ -292,74 +293,20 @@ fun ModelTryOnScreen(
                         )
                     }
 
-                    // Layer 2: USER'S REAL FACE SUPERIMPOSED ON MODEL (When facing front)
-                    if (!isBackFacing) {
-                        if (!userPhotoUri.isNullOrBlank()) {
-                            // User's real face framed accurately on the head/face region
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .padding(top = 24.dp)
-                                    .size(width = 88.dp, height = 106.dp)
-                                    .clip(RoundedCornerShape(48.dp))
-                                    .background(PehnoSurface)
-                                    .border(2.5.dp, PehnoGreenPrimary, RoundedCornerShape(48.dp))
-                                    .clickable { showFaceOptionsSheet = true }
-                            ) {
-                                AsyncImage(
-                                    model = userPhotoUri,
-                                    contentDescription = "User Face on Model",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-
-                                // Corner indicator badge
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .background(PehnoBlack.copy(alpha = 0.7f))
-                                        .padding(horizontal = 5.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = if (lang == "ur") "آپ کا چہرہ" else "You",
-                                        fontSize = 8.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = PehnoWhite
-                                    )
-                                }
-                            }
-                        } else {
-                            // Prompt to tap and capture portrait on model
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = PehnoBlack.copy(alpha = 0.72f),
-                                border = BorderStroke(1.5.dp, PehnoGreenPrimary),
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .padding(top = 34.dp)
-                                    .clickable { launchCameraForPortrait() }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CameraAlt,
-                                        contentDescription = "Capture Portrait",
-                                        tint = PehnoGreenLight,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (lang == "ur") "پورٹریٹ لیں (Capture Portrait)" else "Capture Portrait",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = PehnoWhite
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    // Layer 2: USER'S REAL FACE SUPERIMPOSED ON MODEL (Using ModelFaceOverlayComponent scaled by height & weight)
+                    ModelFaceOverlayComponent(
+                        userPhotoUri = userPhotoUri,
+                        heightFt = heightFt,
+                        weightKg = weightKg,
+                        gender = gender,
+                        isBackFacing = isBackFacing,
+                        onPhotoCaptured = { processedPath ->
+                            viewModel.updateUserPhotoUri(processedPath)
+                            viewModel.userNotice.value = if (lang == "ur") "پورٹریٹ کامیابی سے ماڈل پر لگ گیا!" else "Portrait captured and overlaid on model!"
+                        },
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        onFaceClicked = { showFaceOptionsSheet = true }
+                    )
 
                     // Layer 3: Subtle gradient overlay for contrast
                     Box(
