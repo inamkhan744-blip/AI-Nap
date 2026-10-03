@@ -90,6 +90,9 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
     val selectedCap = MutableStateFlow<FashionItem?>(null)
     val selectedDaman = MutableStateFlow<FashionItem?>(null)
 
+    // Wishlist
+    val wishlistItems = MutableStateFlow<List<FashionItem>>(emptyList())
+
     // Category browsing & Module selections
     val selectedCategory = MutableStateFlow(FashionCategory.DRESS_TRY_ON)
     val selectedPehnoCategory = MutableStateFlow(PehnoCategory.DRESS)
@@ -389,6 +392,26 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
             PehnoCategory.SHOES -> selectedShoes.value = item
         }
         userNotice.value = "${item.name} applied to model!"
+    }
+
+    fun addToWishlist(item: FashionItem) {
+        if (wishlistItems.value.none { it.id == item.id }) {
+            wishlistItems.value = wishlistItems.value + item
+            userNotice.value = if (currentLanguage.value == "ur") "وشلسٹ میں شامل کر دیا گیا" else "Added to wishlist"
+        }
+    }
+
+    fun removeFromWishlist(itemId: String) {
+        wishlistItems.value = wishlistItems.value.filterNot { it.id == itemId }
+        userNotice.value = if (currentLanguage.value == "ur") "وشلسٹ سے ہٹا دیا گیا" else "Removed from wishlist"
+    }
+
+    fun toggleWishlist(item: FashionItem) {
+        if (wishlistItems.value.any { it.id == item.id }) {
+            removeFromWishlist(item.id)
+        } else {
+            addToWishlist(item)
+        }
     }
 
     fun initializeDefaultEnsemble(gender: String) {

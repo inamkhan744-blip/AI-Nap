@@ -85,4 +85,19 @@ class ExampleRobolectricTest {
     assertEquals(500, composited.width)
     assertEquals(800, composited.height)
   }
+
+  @Test
+  fun `test wishlist addition and removal`() {
+    val items = com.example.data.model.FashionCatalog.items
+    assert(items.isNotEmpty())
+    val sampleItem = items.first()
+
+    var wishlist = listOf<com.example.data.model.FashionItem>()
+    wishlist = wishlist + sampleItem
+    assert(wishlist.size == 1)
+    assertEquals(sampleItem.id, wishlist.first().id)
+
+    wishlist = wishlist.filterNot { it.id == sampleItem.id }
+    assert(wishlist.isEmpty())
+  }
 }

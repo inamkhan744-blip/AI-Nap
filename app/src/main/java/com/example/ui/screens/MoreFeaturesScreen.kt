@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,8 +26,8 @@ import com.example.ui.viewmodel.FashionViewModel
 @Composable
 fun MoreFeaturesScreen(viewModel: FashionViewModel) {
     val lang by viewModel.currentLanguage.collectAsState()
+    val wishlist by viewModel.wishlistItems.collectAsState()
     var selectedSection by remember { mutableStateOf("home") }
-    var wishlist by remember { mutableStateOf<List<FashionItem>>(emptyList()) }
     var pushNotifications by remember { mutableStateOf(true) }
     var darkMode by remember { mutableStateOf(false) }
 
@@ -35,7 +36,7 @@ fun MoreFeaturesScreen(viewModel: FashionViewModel) {
             items = wishlist,
             lang = lang,
             onBack = { selectedSection = "home" },
-            onRemove = { item -> wishlist = wishlist.filterNot { it.id == item.id } },
+            onRemove = { item -> viewModel.removeFromWishlist(item.id) },
             onTryOn = { item -> viewModel.selectedDress.value = item; selectedSection = "home" }
         )
         "settings" -> SettingsSection(
@@ -56,7 +57,7 @@ fun MoreFeaturesScreen(viewModel: FashionViewModel) {
                 onWishlist = { selectedSection = "wishlist" },
                 onSettings = { selectedSection = "settings" },
                 onAddRecommended = { item ->
-                    if (wishlist.none { it.id == item.id }) wishlist = wishlist + item
+                    viewModel.addToWishlist(item)
                 },
                 recommended = catalog.take(6)
             )
@@ -139,13 +140,13 @@ private fun SettingsSection(lang: String, pushNotifications: Boolean, darkMode: 
             item { SettingRow(Icons.Default.Language, if (lang == "ur") "زبان" else "Language", if (lang == "ur") "اردو / English" else "Urdu / English", onLanguage) }
             item { SwitchRow(Icons.Default.Notifications, if (lang == "ur") "پش اطلاعات" else "Push Notifications", pushNotifications, onTogglePush) }
             item { SwitchRow(Icons.Default.DarkMode, if (lang == "ur") "ڈارک موڈ" else "Dark Mode", darkMode, onToggleDark) }
-            item { SettingRow(Icons.Default.HelpOutline, if (lang == "ur") "مدد اور سپورٹ" else "Help & Support", "AI-Nap v1.0", {}) }
+            item { SettingRow(Icons.AutoMirrored.Filled.HelpOutline, if (lang == "ur") "مدد اور سپورٹ" else "Help & Support", "Pehno v1.0", {}) }
             item { SettingRow(Icons.Default.PrivacyTip, if (lang == "ur") "رازداری" else "Privacy", if (lang == "ur") "آپ کا ڈیٹا ڈیوائس پر محفوظ ہے" else "Your profile is stored on this device", {}) }
         }
     }
 }
 
-@Composable private fun SectionHeader(title: String, onBack: () -> Unit) { Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }; Text(title, fontSize = 20.sp, fontWeight = FontWeight.Black, color = PehnoBlack) } }
+@Composable private fun SectionHeader(title: String, onBack: () -> Unit) { Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }; Text(title, fontSize = 20.sp, fontWeight = FontWeight.Black, color = PehnoBlack) } }
 @Composable private fun EmptySection(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) { Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { Icon(icon, null, Modifier.size(64.dp), tint = PehnoCardBorder); Spacer(Modifier.height(12.dp)); Text(text, color = PehnoTextSecondary) } }
-@Composable private fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) { Surface(Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(12.dp), color = PehnoSurface) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = PehnoGreenPrimary); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.Bold, color = PehnoBlack); Text(subtitle, fontSize = 11.sp, color = PehnoTextSecondary) }; Icon(Icons.Default.ChevronRight, null, tint = PehnoTextSecondary) } } }
+@Composable private fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) { Surface(Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(12.dp), color = PehnoSurface) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = PehnoGreenPrimary); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.Bold, color = PehnoBlack); Text(subtitle, fontSize = 11.sp, color = PehnoTextSecondary) }; Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = PehnoTextSecondary) } } }
 @Composable private fun SwitchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) { Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = PehnoSurface) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = PehnoGreenPrimary); Spacer(Modifier.width(12.dp)); Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = PehnoBlack); Switch(checked, onCheckedChange) } } }
