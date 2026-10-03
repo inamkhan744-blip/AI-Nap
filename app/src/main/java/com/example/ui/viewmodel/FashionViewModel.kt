@@ -105,6 +105,9 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
     val isAdvisorLoading = MutableStateFlow(false)
     val selectedAdvisorOccasion = MutableStateFlow<String?>("Wedding / Walima")
 
+    // CameraX Virtual Try-On
+    val showVirtualTryOnModal = MutableStateFlow(false)
+
     // Category browsing & Module selections
     val selectedCategory = MutableStateFlow(FashionCategory.DRESS_TRY_ON)
     val selectedPehnoCategory = MutableStateFlow(PehnoCategory.DRESS)
@@ -525,6 +528,14 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
                 isAdvisorLoading.value = false
             }
         }
+    }
+
+    fun openVirtualTryOn() {
+        showVirtualTryOnModal.value = true
+    }
+
+    fun closeVirtualTryOn() {
+        showVirtualTryOnModal.value = false
     }
 
     fun initializeDefaultEnsemble(gender: String) {

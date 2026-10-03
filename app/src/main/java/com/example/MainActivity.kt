@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.OrderDressDialog
 import com.example.ui.components.StyleAdvisorModalDialog
+import com.example.ui.components.VirtualTryOnDialog
 import com.example.ui.screens.MarketplaceScreen
 import com.example.ui.screens.ModelTryOnScreen
 import com.example.ui.screens.MoreFeaturesScreen
@@ -61,6 +62,7 @@ class MainActivity : ComponentActivity() {
             val showOrderDialog by viewModel.showOrderDialog.collectAsState()
             val activeOrderDress by viewModel.activeOrderDress.collectAsState()
             val showStyleAdvisorModal by viewModel.showStyleAdvisorModal.collectAsState()
+            val showVirtualTryOnModal by viewModel.showVirtualTryOnModal.collectAsState()
 
             var currentTab by remember { mutableStateOf(PehnoMainTab.TRY_ON) }
             val snackbarHostState = remember { SnackbarHostState() }
@@ -429,6 +431,14 @@ class MainActivity : ComponentActivity() {
                                     onSelectDressToTryOn = {
                                         currentTab = PehnoMainTab.TRY_ON
                                     }
+                                )
+                            }
+
+                            // CameraX Virtual Try-On Dialog Overlay
+                            if (showVirtualTryOnModal) {
+                                VirtualTryOnDialog(
+                                    viewModel = viewModel,
+                                    onDismiss = { viewModel.closeVirtualTryOn() }
                                 )
                             }
                         }

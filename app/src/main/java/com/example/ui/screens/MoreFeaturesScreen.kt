@@ -92,6 +92,7 @@ fun MoreFeaturesScreen(
                 lang = lang,
                 ordersCount = placedOrders.size,
                 onStyleAdvisor = { selectedSection = "style_chat" },
+                onVirtualTryOn = { viewModel.openVirtualTryOn() },
                 onDarzi = { selectedSection = "darzi" },
                 onAdvisor = { selectedSection = "advisor" },
                 onOrders = { selectedSection = "orders" },
@@ -240,12 +241,25 @@ private fun MoreHome(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     FeatureTile(
+                        icon = Icons.Default.Camera,
+                        title = if (isUrdu) "کیمرہ ٹرائی آن" else "Virtual Try-On",
+                        subtitle = if (isUrdu) "لائیو کیمرہ فٹنگ" else "CameraX Fitting",
+                        onClick = { viewModel.openVirtualTryOn() },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FeatureTile(
                         icon = Icons.Default.LocalShipping,
                         title = if (isUrdu) "میرے آرڈرز" else "My Orders",
                         subtitle = "$ordersCount ${if (isUrdu) "آرڈرز" else "Orders"}",
                         onClick = onOrders,
                         modifier = Modifier.weight(1f)
                     )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     FeatureTile(
                         icon = Icons.Default.Settings,
                         title = if (isUrdu) "سیٹنگز" else "Settings",

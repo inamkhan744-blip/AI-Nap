@@ -473,6 +473,34 @@ fun ModelTryOnScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    // Button 0: Live CameraX Virtual Try-On with clothing overlay
+                    Button(
+                        onClick = { viewModel.openVirtualTryOn() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PehnoGreenDark,
+                            contentColor = PehnoWhite
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .testTag("open_virtual_tryon_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Camera,
+                            contentDescription = "Virtual Try-On",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (lang == "ur") "📸 لائیو کیمرہ ورچوئل ٹرائی آن (CameraX)" else "📸 Live Camera Virtual Try-On",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
