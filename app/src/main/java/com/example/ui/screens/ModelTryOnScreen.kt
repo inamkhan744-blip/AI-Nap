@@ -191,40 +191,73 @@ fun ModelTryOnScreen(
                         )
                     }
 
-                    // Face Upload Button
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = PehnoWhite,
-                        border = BorderStroke(1.dp, PehnoGreenPrimary),
-                        modifier = Modifier.clickable {
-                            if (userPhotoUri.isNullOrBlank()) {
-                                launchCameraForPortrait()
-                            } else {
-                                showFaceOptionsSheet = true
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // AI Style Advisor Button
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = PehnoGreenPrimary,
+                            modifier = Modifier
+                                .clickable { viewModel.openStyleAdvisor() }
+                                .testTag("tryon_ai_advisor_btn")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = "AI Stylist",
+                                    tint = PehnoWhite,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (lang == "ur") "AI مشورہ" else "AI Stylist",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PehnoWhite
+                                )
                             }
                         }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (userPhotoUri.isNullOrBlank()) Icons.Default.CameraAlt else Icons.Default.Face,
-                                contentDescription = "Face",
-                                tint = PehnoGreenPrimary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (userPhotoUri.isNullOrBlank()) {
-                                    if (lang == "ur") "پورٹریٹ لیں" else "Capture Portrait"
+
+                        // Face Upload Button
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = PehnoWhite,
+                            border = BorderStroke(1.dp, PehnoGreenPrimary),
+                            modifier = Modifier.clickable {
+                                if (userPhotoUri.isNullOrBlank()) {
+                                    launchCameraForPortrait()
                                 } else {
-                                    if (lang == "ur") "چہرہ تبدیل کریں" else "Change Face"
-                                },
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PehnoGreenPrimary
-                            )
+                                    showFaceOptionsSheet = true
+                                }
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (userPhotoUri.isNullOrBlank()) Icons.Default.CameraAlt else Icons.Default.Face,
+                                    contentDescription = "Face",
+                                    tint = PehnoGreenPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (userPhotoUri.isNullOrBlank()) {
+                                        if (lang == "ur") "چہرہ" else "Face"
+                                    } else {
+                                        if (lang == "ur") "تبدیل" else "Edit"
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PehnoGreenPrimary
+                                )
+                            }
                         }
                     }
                 }

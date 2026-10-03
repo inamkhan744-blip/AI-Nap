@@ -136,4 +136,32 @@ class ExampleRobolectricTest {
     assertEquals(4500, order.priceRs)
     assertEquals("Lahore", order.deliveryCity)
   }
+
+  @Test
+  fun `test style advisor presets and chat message creation`() {
+    val occasions = com.example.data.model.StyleAdvisorPresets.occasions
+    assert(occasions.isNotEmpty())
+    assert(occasions.any { it.id == "wedding" })
+
+    val maleUrduSuggestions = com.example.data.model.StyleAdvisorPresets.getSuggestions("Male", "ur")
+    assert(maleUrduSuggestions.isNotEmpty())
+
+    val femaleEnSuggestions = com.example.data.model.StyleAdvisorPresets.getSuggestions("Female", "en")
+    assert(femaleEnSuggestions.isNotEmpty())
+
+    val userMsg = com.example.data.model.ChatMessage(
+        sender = com.example.data.model.MessageSender.USER,
+        text = "What to wear for Walima?",
+        occasion = "Wedding / Walima"
+    )
+    assertEquals(com.example.data.model.MessageSender.USER, userMsg.sender)
+    assertEquals("Wedding / Walima", userMsg.occasion)
+
+    val advisorMsg = com.example.data.model.ChatMessage(
+        sender = com.example.data.model.MessageSender.ADVISOR,
+        text = "Opt for a tailored Prince coat.",
+        occasion = "Wedding / Walima"
+    )
+    assertEquals(com.example.data.model.MessageSender.ADVISOR, advisorMsg.sender)
+  }
 }

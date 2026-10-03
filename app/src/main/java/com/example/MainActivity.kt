@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.OrderDressDialog
+import com.example.ui.components.StyleAdvisorModalDialog
 import com.example.ui.screens.MarketplaceScreen
 import com.example.ui.screens.ModelTryOnScreen
 import com.example.ui.screens.MoreFeaturesScreen
@@ -59,6 +60,7 @@ class MainActivity : ComponentActivity() {
             val wishlistItems by viewModel.wishlistItems.collectAsState()
             val showOrderDialog by viewModel.showOrderDialog.collectAsState()
             val activeOrderDress by viewModel.activeOrderDress.collectAsState()
+            val showStyleAdvisorModal by viewModel.showStyleAdvisorModal.collectAsState()
 
             var currentTab by remember { mutableStateOf(PehnoMainTab.TRY_ON) }
             val snackbarHostState = remember { SnackbarHostState() }
@@ -141,11 +143,39 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
 
-                                    // Action buttons: Language toggle + Profile Edit icon
+                                    // Action buttons: AI Stylist + Language toggle + Profile Edit icon
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
+                                        // AI Style Advisor Button
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = PehnoGreenPrimary,
+                                            modifier = Modifier
+                                                .clickable { viewModel.openStyleAdvisor() }
+                                                .testTag("top_bar_ai_stylist_btn")
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AutoAwesome,
+                                                    contentDescription = "AI Stylist",
+                                                    tint = PehnoWhite,
+                                                    modifier = Modifier.size(15.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = if (lang == "ur") "AI مشورہ" else "AI Stylist",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 11.sp,
+                                                    color = PehnoWhite
+                                                )
+                                            }
+                                        }
+
                                         // Language Switcher (Urdu <-> English)
                                         Surface(
                                             shape = RoundedCornerShape(16.dp),
@@ -388,6 +418,17 @@ class MainActivity : ComponentActivity() {
                                     item = activeOrderDress!!,
                                     viewModel = viewModel,
                                     onDismiss = { viewModel.showOrderDialog.value = false }
+                                )
+                            }
+
+                            // Style Advisor Modal Overlay
+                            if (showStyleAdvisorModal) {
+                                StyleAdvisorModalDialog(
+                                    viewModel = viewModel,
+                                    onDismiss = { viewModel.closeStyleAdvisor() },
+                                    onSelectDressToTryOn = {
+                                        currentTab = PehnoMainTab.TRY_ON
+                                    }
                                 )
                             }
                         }

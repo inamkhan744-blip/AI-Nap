@@ -49,6 +49,7 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
 
     private val repository = FashionRepository(application)
     val voiceStylist = BajiVoiceStylist(application)
+    val geminiService = com.example.data.remote.GeminiStylingService(application)
 
     val userProfile: StateFlow<UserProfileEntity?> = repository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -97,6 +98,12 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
     val placedOrders = MutableStateFlow<List<PlacedOrder>>(emptyList())
     val activeOrderDress = MutableStateFlow<FashionItem?>(null)
     val showOrderDialog = MutableStateFlow(false)
+
+    // Style Advisor Chat
+    val showStyleAdvisorModal = MutableStateFlow(false)
+    val styleAdvisorMessages = MutableStateFlow<List<com.example.data.model.ChatMessage>>(emptyList())
+    val isAdvisorLoading = MutableStateFlow(false)
+    val selectedAdvisorOccasion = MutableStateFlow<String?>("Wedding / Walima")
 
     // Category browsing & Module selections
     val selectedCategory = MutableStateFlow(FashionCategory.DRESS_TRY_ON)
@@ -427,6 +434,97 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
     fun recordOrder(order: PlacedOrder) {
         placedOrders.value = listOf(order) + placedOrders.value
         userNotice.value = if (currentLanguage.value == "ur") "آرڈر کامیابی سے محفوظ ہو گیا!" else "Order placed successfully!"
+    }
+
+    fun openStyleAdvisor(initialOccasion: String? = null) {
+        if (!initialOccasion.isNullOrBlank()) {
+            selectedAdvisorOccasion.value = initialOccasion
+        }
+        if (styleAdvisorMessages.value.isEmpty()) {
+            val isUrdu = currentLanguage.value == "ur"
+            val h = userProfile.value?.heightFt ?: formHeightFt.value
+            val w = userProfile.value?.weightKg ?: formWeightKg.value
+            val b = userProfile.value?.bodyType ?: formBodyType.value
+            val welcomeText = if (isUrdu) {
+                "السلام علیکم! میں آپ کا پہنو اے آئی اسٹائل ایڈوائزر ہوں۔ میں آپ کے قد (${"%.1f".format(h)}ft)، وزن (${w.toInt()}kg) اور جسمانی ساخت ($b) کے مطابق موقع کی مناسبت سے بہترین فیشن مشورہ دینے کے لیے حاضر ہوں۔ اوپر سے موقع منتخب کریں یا نیچے اپنا سوال پوچھیں!"
+            } else {
+                "Assalam-o-Alaikum! I am your Pehno AI Style Advisor powered by Gemini. I provide personalized Pakistani fashion advice for your height (${"%.1f".format(h)}ft), weight (${w.toInt()}kg), and body type ($b). Select an occasion above or ask me anything!"
+            }
+            styleAdvisorMessages.value = listOf(
+                com.example.data.model.ChatMessage(
+                    sender = com.example.data.model.MessageSender.ADVISOR,
+                    text = welcomeText,
+                    occasion = selectedAdvisorOccasion.value
+                )
+            )
+        }
+        showStyleAdvisorModal.value = true
+    }
+
+    fun closeStyleAdvisor() {
+        showStyleAdvisorModal.value = false
+    }
+
+    fun clearAdvisorChat() {
+        styleAdvisorMessages.value = emptyList()
+        openStyleAdvisor()
+    }
+
+    fun sendAdvisorMessage(prompt: String, occasionOverride: String? = null) {
+        if (prompt.isBlank() || isAdvisorLoading.value) return
+        val currentOccasion = occasionOverride ?: selectedAdvisorOccasion.value
+        val userMsg = com.example.data.model.ChatMessage(
+            sender = com.example.data.model.MessageSender.USER,
+            text = prompt.trim(),
+            occasion = currentOccasion
+        )
+        styleAdvisorMessages.value = styleAdvisorMessages.value + userMsg
+        isAdvisorLoading.value = true
+
+        viewModelScope.launch {
+            try {
+                val profile = userProfile.value
+                val gender = profile?.gender ?: formGender.value
+                val heightFt = profile?.heightFt ?: formHeightFt.value
+                val weightKg = profile?.weightKg ?: formWeightKg.value
+                val bodyType = profile?.bodyType ?: formBodyType.value
+                val skinTone = profile?.skinTone ?: formSkinTone.value
+                val city = profile?.city ?: formCity.value
+                val lang = currentLanguage.value
+
+                val responseText = geminiService.askStyleAdvisor(
+                    conversationHistory = styleAdvisorMessages.value,
+                    userMessage = prompt.trim(),
+                    occasion = currentOccasion,
+                    gender = gender,
+                    heightFt = heightFt,
+                    weightKg = weightKg,
+                    bodyType = bodyType,
+                    skinTone = skinTone,
+                    city = city,
+                    lang = lang
+                )
+
+                val suggested = FashionCatalog.searchMultiStoreItems("", gender).take(2)
+
+                val aiMsg = com.example.data.model.ChatMessage(
+                    sender = com.example.data.model.MessageSender.ADVISOR,
+                    text = responseText,
+                    occasion = currentOccasion,
+                    suggestedItems = suggested
+                )
+                styleAdvisorMessages.value = styleAdvisorMessages.value + aiMsg
+            } catch (e: Exception) {
+                val errMsg = com.example.data.model.ChatMessage(
+                    sender = com.example.data.model.MessageSender.ADVISOR,
+                    text = if (currentLanguage.value == "ur") "معذرت، فیشن مشورہ حاصل کرنے میں رکاوٹ آئی۔ براہ کرم دوبارہ کوشش فرمائیں۔" else "Could not retrieve advice at this moment. Please try again.",
+                    occasion = currentOccasion
+                )
+                styleAdvisorMessages.value = styleAdvisorMessages.value + errMsg
+            } finally {
+                isAdvisorLoading.value = false
+            }
+        }
     }
 
     fun initializeDefaultEnsemble(gender: String) {

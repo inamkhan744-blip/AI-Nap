@@ -427,4 +427,168 @@ class GeminiStylingService(private val context: Context) {
         val color = "Aapke $skinTone skin tone ke liye Royal Gold accents aur deep tones ka match sab se premium lagega."
         return Triple(verdict, tip, color)
     }
+
+    suspend fun askStyleAdvisor(
+        conversationHistory: List<com.example.data.model.ChatMessage>,
+        userMessage: String,
+        occasion: String?,
+        gender: String,
+        heightFt: Float,
+        weightKg: Float,
+        bodyType: String,
+        skinTone: String,
+        city: String,
+        lang: String
+    ): String = withContext(Dispatchers.IO) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        val isUrdu = lang == "ur"
+        val occasionStr = occasion ?: "General / Festive"
+
+        val systemInstruction = """
+            You are 'Pehno AI Style Advisor' (پہنو اسٹائل ایڈوائزر), an expert Pakistani haute-couture and traditional fashion stylist.
+            You provide tailored, chic, culturally authentic, and flattering fashion advice.
+            
+            Client Profile:
+            - Gender: $gender
+            - Height: ${"%.1f".format(heightFt)} ft
+            - Weight: ${weightKg.toInt()} kg
+            - Body Type: $bodyType
+            - Skin Tone: $skinTone
+            - City: $city
+            - Occasion: $occasionStr
+            
+            Guidelines:
+            1. Recommend specific Pakistani outfits (e.g. Shalwar Kameez with Ban Collar, Prince Coat, Raw Silk Sherwani, Embroidered Waistcoat, Peshawari Chappal for men; Organza Kurti, Gharara, Sharara, Chiffon Anarkali, Velvet Shawl, Khussa for women).
+            2. Explain why the silhouette and cut flatter their exact ${"%.1f".format(heightFt)}ft height and $bodyType body type.
+            3. Suggest optimal color contrasts for their $skinTone skin tone.
+            4. Keep advice practical, graceful, and fashionable.
+            5. Respond in bilingual Urdu/English (or Roman Urdu/English) based on the user's question.
+        """.trimIndent()
+
+        if (apiKey.isNullOrBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            return@withContext getRuleBasedStyleAdvice(userMessage, occasionStr, gender, heightFt, bodyType, skinTone, isUrdu)
+        }
+
+        try {
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+            val contentsArray = JSONArray()
+
+            // System prompt as initial user context
+            contentsArray.put(JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().apply {
+                    put(JSONObject().apply { put("text", systemInstruction) })
+                })
+            })
+
+            contentsArray.put(JSONObject().apply {
+                put("role", "model")
+                put("parts", JSONArray().apply {
+                    put(JSONObject().apply { put("text", if (isUrdu) "خوش آمدید! میں پہنو اے آئی اسٹائل ایڈوائزر ہوں۔ میں آپ کے قد، وزن اور موقع کے مطابق بہترین فیشن مشورہ دینے کے لیے تیار ہوں۔" else "Welcome! I am your Pehno AI Style Advisor, ready to provide bespoke styling tailored to your frame and occasion.") })
+                })
+            })
+
+            // Recent history
+            val recent = conversationHistory.takeLast(4)
+            for (msg in recent) {
+                val role = if (msg.sender == com.example.data.model.MessageSender.USER) "user" else "model"
+                contentsArray.put(JSONObject().apply {
+                    put("role", role)
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply { put("text", msg.text) })
+                    })
+                })
+            }
+
+            val queryPrompt = "Occasion: $occasionStr\nQuery: $userMessage"
+            contentsArray.put(JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().apply {
+                    put(JSONObject().apply { put("text", queryPrompt) })
+                })
+            })
+
+            val jsonPayload = JSONObject().apply {
+                put("contents", contentsArray)
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", 0.7)
+                    put("maxOutputTokens", 800)
+                })
+            }
+
+            val request = Request.Builder()
+                .url(url)
+                .post(jsonPayload.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            if (response.isSuccessful && !responseBody.isNullOrBlank()) {
+                val rootJson = JSONObject(responseBody)
+                val candidates = rootJson.optJSONArray("candidates")
+                val firstCandidate = candidates?.optJSONObject(0)
+                val content = firstCandidate?.optJSONObject("content")
+                val parts = content?.optJSONArray("parts")
+                val text = parts?.optJSONObject(0)?.optString("text")
+
+                if (!text.isNullOrBlank()) {
+                    return@withContext text.trim()
+                }
+            }
+            getRuleBasedStyleAdvice(userMessage, occasionStr, gender, heightFt, bodyType, skinTone, isUrdu)
+        } catch (e: Exception) {
+            getRuleBasedStyleAdvice(userMessage, occasionStr, gender, heightFt, bodyType, skinTone, isUrdu)
+        }
+    }
+
+    private fun getRuleBasedStyleAdvice(
+        query: String,
+        occasion: String,
+        gender: String,
+        heightFt: Float,
+        bodyType: String,
+        skinTone: String,
+        isUrdu: Boolean
+    ): String {
+        val isMale = gender.equals("Male", ignoreCase = true)
+        val isTall = heightFt >= 5.9f
+        val isPetite = heightFt < 5.4f
+
+        return if (isUrdu) {
+            """
+✨ *پہنو اے آئی اسٹائل ایڈوائزر مشورہ:*
+📌 *موقع:* $occasion | *جسم:* $bodyType | *قد:* ${"%.1f".format(heightFt)}ft
+
+👗 *تجویز کردہ لباس:*
+${if (isMale) "• خالص کاٹن یا را سلک کا کلاسک کرتا شلوار بمعہ رائل بین کالر اور کٹ ورک واسکٹ۔\n• اگر ولیمہ ہے تو نیوی بلیو یا جیٹ بلیک پرنس کوٹ منتخب کریں۔" else "• لانگ سٹریٹ کٹ قمیض بمعہ چکن کاری یا سِلک دوپٹہ۔\n• شادی یا ولیمے کے لیے پیسٹل شیڈ میں را سلک فراک یا کٹ ورک کُرتی۔"}
+
+🎨 *رنگوں کا انتخاب ($skinTone رنگت کے لیے):*
+• گہرے اور شاہی شیڈز جیسے کہ رائل بلیو، زمردی سبز، گہرا مہرون، اور کلاسک بلیک آپ پر انتہائی دلکش لگیں گے۔
+
+✂️ *قد اور جسم کے مطابق کٹ (${"%.1f".format(heightFt)}ft):*
+• ${if (isPetite) "قمیض کی لمبائی درمیانی رکھیں اور ٹراؤزر میں کم چنیں ڈالیں تا کہ قد 2 انچ لمبا دکھے۔" else if (isTall) "لمبی قمیض اور روایتی شلوار کا گھیر آپ کے لمبائی کو متوازن اور پُروقار بنائے گا۔" else "سیدھی کٹ کی قمیض آپ کے متوازن قد اور جسم کو بہترین تناسب دیتی ہے۔"}
+
+👞 *جوتا اور فائنل ٹچ:*
+• ${if (isMale) "نرم چمڑے کی کلاسک پشاوری چپل یا لیدر کھسہ بمعہ میٹل ڈائل گھڑی۔" else "روایتی زری کھسہ یا بلاک ہیلز بمعہ نازک جھمکے۔"}
+            """.trimIndent()
+        } else {
+            """
+✨ *Pehno AI Style Advisor Verdict:*
+📌 *Occasion:* $occasion | *Build:* $bodyType | *Height:* ${"%.1f".format(heightFt)}ft
+
+👑 *Recommended Ensemble:*
+${if (isMale) "• Classic Jet Black or Royal Navy tailored Shalwar Kameez with a structured ban collar and an embroidered velvet/jamawar waistcoat.\n• For formal weddings, a bespoke Prince Coat offers royal elegance." else "• Long straight-silhouette Raw Silk Kurti with flared palazzo trousers or an embroidered Anarkali suit.\n• For formal events, pair with an organza or zari-embroidered dupatta."}
+
+🎨 *Color Palette for $skinTone Skin:*
+• Deep jewel tones (Emerald Green, Midnight Navy, Crimson Maroon) and crisp monochrome contrasts will look striking on your tone.
+
+✂️ *Proportion & Silhouette Advice (${"%.1f".format(heightFt)}ft):*
+• ${if (isPetite) "Opt for vertical embroidery plackets and straight cuts; avoid excess horizontal breaks to elongate your frame by 2 inches." else if (isTall) "A traditional drape with knee-length or calf-length cut gives your stature commanding elegance." else "A balanced regular fit with clean shoulder structure flatters your medium frame perfectly."}
+
+👞 *Footwear & Accessories:*
+• ${if (isMale) "Handcrafted Kaptaan Peshawari Chappal or classic leather Khussa with a leather-strap watch." else "Hand-embroidered velvet Khussa or 2-inch block heels with delicate jhumkas."}
+            """.trimIndent()
+        }
+    }
 }

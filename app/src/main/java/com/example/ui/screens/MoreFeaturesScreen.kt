@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
@@ -28,6 +29,7 @@ import com.example.data.model.FashionCatalog
 import com.example.data.model.FashionItem
 import com.example.data.model.PlacedOrder
 import com.example.data.model.TailorMeasurements
+import com.example.ui.components.StyleAdvisorChatContent
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FashionViewModel
 import com.example.util.TailorMeasurementCalculator
@@ -48,6 +50,14 @@ fun MoreFeaturesScreen(
     var darkMode by remember { mutableStateOf(false) }
 
     when (selectedSection) {
+        "style_chat" -> StyleAdvisorChatContent(
+            viewModel = viewModel,
+            onClose = { selectedSection = "home" },
+            onSelectDressToTryOn = { item ->
+                viewModel.selectedDress.value = item
+                onNavigateToTryOn()
+            }
+        )
         "darzi" -> SmartDarziSection(
             viewModel = viewModel,
             lang = lang,
@@ -81,6 +91,7 @@ fun MoreFeaturesScreen(
             MoreHome(
                 lang = lang,
                 ordersCount = placedOrders.size,
+                onStyleAdvisor = { selectedSection = "style_chat" },
                 onDarzi = { selectedSection = "darzi" },
                 onAdvisor = { selectedSection = "advisor" },
                 onOrders = { selectedSection = "orders" },
@@ -100,6 +111,7 @@ fun MoreFeaturesScreen(
 private fun MoreHome(
     lang: String,
     ordersCount: Int,
+    onStyleAdvisor: () -> Unit,
     onDarzi: () -> Unit,
     onAdvisor: () -> Unit,
     onOrders: () -> Unit,
@@ -128,6 +140,76 @@ private fun MoreHome(
                 fontSize = 12.sp,
                 color = PehnoTextSecondary
             )
+        }
+
+        // Featured Hero Banner: Gemini AI Style Advisor
+        item {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onStyleAdvisor() },
+                shape = RoundedCornerShape(20.dp),
+                color = PehnoGreenLight,
+                border = BorderStroke(1.5.dp, PehnoGreenPrimary),
+                shadowElevation = 3.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(PehnoGreenPrimary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "Gemini AI Style Advisor",
+                            tint = PehnoWhite,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isUrdu) "اے آئی اسٹائل ایڈوائزر" else "AI Style Advisor",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                color = PehnoBlack
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = PehnoGreenPrimary
+                            ) {
+                                Text(
+                                    text = "Gemini AI",
+                                    fontSize = 9.sp,
+                                    color = PehnoWhite,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = if (isUrdu) "شادی، عید اور تقریب کے لیے قد اور وزن کے مطابق فیشن مشورہ" else "Personalized fashion advice for occasions & your exact body type",
+                            fontSize = 11.sp,
+                            color = PehnoTextSecondary,
+                            lineHeight = 15.sp
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = PehnoGreenPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
 
         // 4 Primary Feature Tiles
