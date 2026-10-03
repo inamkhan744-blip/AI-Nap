@@ -51,6 +51,7 @@ fun MarketplaceScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     val sellerDresses by viewModel.sellerDresses.collectAsState()
+    val wishlist by viewModel.wishlistItems.collectAsState()
 
     // Multi-store results matching gender & search
     val storeItems = remember(searchQuery, gender) {
@@ -242,19 +243,21 @@ fun MarketplaceScreen(
                         }
                     )
                 }
-
+                
                 // 2. Multi-Store Online Dresses (Daraz, Khaadi, Sana Collection, etc.)
                 items(storeItems, key = { it.id }) { item ->
+                    val isWishlisted = wishlist.any { it.id == item.id }
                     StoreDressCard(
                         item = item,
                         lang = lang,
+                        isWishlisted = isWishlisted,
+                        onToggleWishlist = { viewModel.toggleWishlist(item) },
                         onTryOn = {
                             viewModel.selectedDress.value = item
                             onNavigateToTryOn()
                         },
                         onOrderStore = {
-                            val storeIntent = Intent(Intent.ACTION_VIEW, Uri.parse(item.darazLink))
-                            context.startActivity(storeIntent)
+                            viewModel.openOrderSheet(item)
                         },
                         onDownloadLook = {
                             viewModel.exportDressPng(item) { success, _ ->
@@ -276,6 +279,8 @@ fun MarketplaceScreen(
 fun StoreDressCard(
     item: FashionItem,
     lang: String,
+    isWishlisted: Boolean = false,
+    onToggleWishlist: () -> Unit = {},
     onTryOn: () -> Unit,
     onOrderStore: () -> Unit,
     onDownloadLook: () -> Unit
@@ -329,6 +334,23 @@ fun StoreDressCard(
                         color = PehnoWhite,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Wishlist Toggle Button on Photo
+                IconButton(
+                    onClick = onToggleWishlist,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(34.dp)
+                        .background(Color.White.copy(alpha = 0.92f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Wishlist",
+                        tint = if (isWishlisted) Color.Red else PehnoBlack,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

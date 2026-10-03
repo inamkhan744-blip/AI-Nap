@@ -93,6 +93,11 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
     // Wishlist
     val wishlistItems = MutableStateFlow<List<FashionItem>>(emptyList())
 
+    // Orders
+    val placedOrders = MutableStateFlow<List<PlacedOrder>>(emptyList())
+    val activeOrderDress = MutableStateFlow<FashionItem?>(null)
+    val showOrderDialog = MutableStateFlow(false)
+
     // Category browsing & Module selections
     val selectedCategory = MutableStateFlow(FashionCategory.DRESS_TRY_ON)
     val selectedPehnoCategory = MutableStateFlow(PehnoCategory.DRESS)
@@ -412,6 +417,16 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
         } else {
             addToWishlist(item)
         }
+    }
+
+    fun openOrderSheet(item: FashionItem) {
+        activeOrderDress.value = item
+        showOrderDialog.value = true
+    }
+
+    fun recordOrder(order: PlacedOrder) {
+        placedOrders.value = listOf(order) + placedOrders.value
+        userNotice.value = if (currentLanguage.value == "ur") "آرڈر کامیابی سے محفوظ ہو گیا!" else "Order placed successfully!"
     }
 
     fun initializeDefaultEnsemble(gender: String) {

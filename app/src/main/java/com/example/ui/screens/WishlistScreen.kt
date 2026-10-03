@@ -21,22 +21,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.FashionItem
+import com.example.ui.components.OrderDressDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FashionViewModel
-import com.example.util.PehnoStrings
 
 @Composable
 fun WishlistScreen(
     viewModel: FashionViewModel,
-    onNavigateToMarketplace: () -> Unit = {}
+    onNavigateToMarketplace: () -> Unit = {},
+    onNavigateToTryOn: () -> Unit = {}
 ) {
     val lang by viewModel.currentLanguage.collectAsState()
+    val isUrdu = lang == "ur"
     val wishlistItems by viewModel.wishlistItems.collectAsState()
+    var orderTargetItem by remember { mutableStateOf<FashionItem?>(null) }
 
     Box(modifier = Modifier.fillMaxSize().background(PehnoWhite)) {
         if (wishlistItems.isEmpty()) {
@@ -45,7 +49,7 @@ fun WishlistScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -57,15 +61,15 @@ fun WishlistScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = if (lang == "ur") "آپ کی وشلسٹ خالی ہے" else "Your Wishlist is Empty",
+                    text = if (isUrdu) "آپ کی وشلسٹ خالی ہے" else "Your Wishlist is Empty",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = PehnoBlack
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (lang == "ur") "مارکیٹ پلیس میں جائیں اور اپنی پسندیدہ چیزیں شامل کریں" else "Visit Marketplace to add your favorite items",
-                    fontSize = 14.sp,
+                    text = if (isUrdu) "مارکیٹ پلیس سے اپنے پسندیدہ پاکستانی جوڑے شامل کریں" else "Save your favorite Pakistani dresses to try on later",
+                    fontSize = 13.sp,
                     color = PehnoTextSecondary
                 )
                 Spacer(modifier = Modifier.height(20.dp))
@@ -82,16 +86,14 @@ fun WishlistScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (lang == "ur") "مارکیٹ پلیس دیکھیں" else "Browse Marketplace",
+                        text = if (isUrdu) "مارکیٹ پلیس دیکھیں" else "Browse Marketplace",
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         } else {
             // Wishlist Grid
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 // Header
                 Surface(
                     color = PehnoGreenLight,
@@ -107,13 +109,13 @@ fun WishlistScreen(
                     ) {
                         Column {
                             Text(
-                                text = if (lang == "ur") "میری وشلسٹ" else "My Wishlist",
+                                text = if (isUrdu) "میری وشلسٹ (پسندیدہ جوڑے)" else "My Wishlist",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Black,
                                 color = PehnoGreenDark
                             )
                             Text(
-                                text = "${wishlistItems.size} ${if (lang == "ur") "اشیاء" else "items"}",
+                                text = "${wishlistItems.size} ${if (isUrdu) "جوڑے محفوظ ہیں" else "saved items"}",
                                 fontSize = 12.sp,
                                 color = PehnoTextSecondary
                             )
@@ -122,7 +124,7 @@ fun WishlistScreen(
                             imageVector = Icons.Default.Favorite,
                             contentDescription = null,
                             tint = Color.Red,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
@@ -133,19 +135,34 @@ fun WishlistScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 12.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(wishlistItems) { item ->
+                    items(wishlistItems, key = { it.id }) { item ->
                         WishlistItemCard(
                             item = item,
                             lang = lang,
                             onRemove = { viewModel.removeFromWishlist(item.id) },
-                            onSelect = { viewModel.selectItemLayer(item) }
+                            onTryOn = {
+                                viewModel.selectedDress.value = item
+                                onNavigateToTryOn()
+                            },
+                            onOrder = {
+                                orderTargetItem = item
+                            }
                         )
                     }
                 }
             }
+        }
+
+        // Order Dialog
+        orderTargetItem?.let { dress ->
+            OrderDressDialog(
+                item = dress,
+                viewModel = viewModel,
+                onDismiss = { orderTargetItem = null }
+            )
         }
     }
 }
@@ -155,25 +172,28 @@ fun WishlistItemCard(
     item: FashionItem,
     lang: String,
     onRemove: () -> Unit,
-    onSelect: () -> Unit
+    onTryOn: () -> Unit,
+    onOrder: () -> Unit
 ) {
+    val isUrdu = lang == "ur"
     Surface(
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.5.dp, PehnoCardBorder),
+        border = BorderStroke(1.2.dp, PehnoCardBorder),
+        color = PehnoWhite,
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
-            .clickable { onSelect() }
+            .testTag("wishlist_card_${item.id}")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Image
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
+                    .height(170.dp)
                     .background(PehnoSurface),
                 contentAlignment = Alignment.Center
             ) {
-                if (!item.frontImageUrl.isNullOrBlank()) {
+                if (item.frontImageUrl.isNotBlank()) {
                     AsyncImage(
                         model = item.frontImageUrl,
                         contentDescription = item.name,
@@ -194,13 +214,13 @@ fun WishlistItemCard(
                     onClick = onRemove,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .size(36.dp)
-                        .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                        .padding(6.dp)
+                        .size(34.dp)
+                        .background(Color.White.copy(alpha = 0.92f), CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Favorite,
-                        contentDescription = "Remove",
+                        contentDescription = "Remove from Wishlist",
                         tint = Color.Red,
                         modifier = Modifier.size(18.dp)
                     )
@@ -222,18 +242,46 @@ fun WishlistItemCard(
                     color = PehnoTextSecondary,
                     maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Rs. ${item.priceRs}",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Black,
                     color = PehnoGreenPrimary
                 )
-                Text(
-                    text = item.storeSource,
-                    fontSize = 9.sp,
-                    color = PehnoTextSecondary
-                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Actions
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Button(
+                        onClick = onTryOn,
+                        colors = ButtonDefaults.buttonColors(containerColor = PehnoGreenLight, contentColor = PehnoGreenPrimary),
+                        border = BorderStroke(1.dp, PehnoGreenPrimary),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp)
+                    ) {
+                        Text(if (isUrdu) "پہنو" else "Try-On", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = onOrder,
+                        colors = ButtonDefaults.buttonColors(containerColor = PehnoGreenPrimary, contentColor = PehnoWhite),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp)
+                    ) {
+                        Text(if (isUrdu) "خریدیں" else "Buy", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }

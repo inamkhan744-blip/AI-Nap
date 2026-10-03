@@ -25,10 +25,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.OrderDressDialog
 import com.example.ui.screens.MarketplaceScreen
 import com.example.ui.screens.ModelTryOnScreen
+import com.example.ui.screens.MoreFeaturesScreen
 import com.example.ui.screens.ProfileSetupScreen
 import com.example.ui.screens.SellDressScreen
+import com.example.ui.screens.WishlistScreen
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FashionViewModel
 import com.example.util.PehnoStrings
@@ -36,7 +39,9 @@ import com.example.util.PehnoStrings
 enum class PehnoMainTab {
     TRY_ON,
     MARKETPLACE,
-    SELL_DRESS
+    WISHLIST,
+    SELL_DRESS,
+    MORE
 }
 
 class MainActivity : ComponentActivity() {
@@ -51,6 +56,9 @@ class MainActivity : ComponentActivity() {
             val userProfile by viewModel.userProfile.collectAsState()
             val userNotice by viewModel.userNotice.collectAsState()
             val showProfileEdit by viewModel.showProfileEdit.collectAsState()
+            val wishlistItems by viewModel.wishlistItems.collectAsState()
+            val showOrderDialog by viewModel.showOrderDialog.collectAsState()
+            val activeOrderDress by viewModel.activeOrderDress.collectAsState()
 
             var currentTab by remember { mutableStateOf(PehnoMainTab.TRY_ON) }
             val snackbarHostState = remember { SnackbarHostState() }
@@ -200,13 +208,13 @@ class MainActivity : ComponentActivity() {
                                         Icon(
                                             imageVector = Icons.Default.Checkroom,
                                             contentDescription = "Model Try-On",
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     },
                                     label = {
                                         Text(
                                             text = PehnoStrings.t("tab_tryon", lang),
-                                            fontSize = 11.sp,
+                                            fontSize = 10.sp,
                                             fontWeight = if (currentTab == PehnoMainTab.TRY_ON) FontWeight.Bold else FontWeight.Normal
                                         )
                                     },
@@ -228,13 +236,13 @@ class MainActivity : ComponentActivity() {
                                         Icon(
                                             imageVector = Icons.Default.Storefront,
                                             contentDescription = "Marketplace",
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     },
                                     label = {
                                         Text(
                                             text = PehnoStrings.t("tab_marketplace", lang),
-                                            fontSize = 11.sp,
+                                            fontSize = 10.sp,
                                             fontWeight = if (currentTab == PehnoMainTab.MARKETPLACE) FontWeight.Bold else FontWeight.Normal
                                         )
                                     },
@@ -248,7 +256,45 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.testTag("tab_nav_marketplace")
                                 )
 
-                                // 3. Sell Dress Tab
+                                // 3. Wishlist Tab (With Badge)
+                                NavigationBarItem(
+                                    selected = currentTab == PehnoMainTab.WISHLIST,
+                                    onClick = { currentTab = PehnoMainTab.WISHLIST },
+                                    icon = {
+                                        BadgedBox(
+                                            badge = {
+                                                if (wishlistItems.isNotEmpty()) {
+                                                    Badge(containerColor = PehnoGreenPrimary, contentColor = PehnoWhite) {
+                                                        Text("${wishlistItems.size}", fontSize = 9.sp)
+                                                    }
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Favorite,
+                                                contentDescription = "Wishlist",
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    },
+                                    label = {
+                                        Text(
+                                            text = PehnoStrings.t("tab_wishlist", lang),
+                                            fontSize = 10.sp,
+                                            fontWeight = if (currentTab == PehnoMainTab.WISHLIST) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = PehnoGreenPrimary,
+                                        selectedTextColor = PehnoGreenPrimary,
+                                        unselectedIconColor = PehnoTextSecondary,
+                                        unselectedTextColor = PehnoTextSecondary,
+                                        indicatorColor = PehnoGreenLight
+                                    ),
+                                    modifier = Modifier.testTag("tab_nav_wishlist")
+                                )
+
+                                // 4. Sell Dress Tab
                                 NavigationBarItem(
                                     selected = currentTab == PehnoMainTab.SELL_DRESS,
                                     onClick = { currentTab = PehnoMainTab.SELL_DRESS },
@@ -256,13 +302,13 @@ class MainActivity : ComponentActivity() {
                                         Icon(
                                             imageVector = Icons.Default.AddBusiness,
                                             contentDescription = "Sell Dress",
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     },
                                     label = {
                                         Text(
                                             text = PehnoStrings.t("tab_sell", lang),
-                                            fontSize = 11.sp,
+                                            fontSize = 10.sp,
                                             fontWeight = if (currentTab == PehnoMainTab.SELL_DRESS) FontWeight.Bold else FontWeight.Normal
                                         )
                                     },
@@ -274,6 +320,34 @@ class MainActivity : ComponentActivity() {
                                         indicatorColor = PehnoGreenLight
                                     ),
                                     modifier = Modifier.testTag("tab_nav_sell")
+                                )
+
+                                // 5. More Features Tab
+                                NavigationBarItem(
+                                    selected = currentTab == PehnoMainTab.MORE,
+                                    onClick = { currentTab = PehnoMainTab.MORE },
+                                    icon = {
+                                        Icon(
+                                            imageVector = Icons.Default.GridView,
+                                            contentDescription = "More Features",
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                            text = PehnoStrings.t("tab_more", lang),
+                                            fontSize = 10.sp,
+                                            fontWeight = if (currentTab == PehnoMainTab.MORE) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = PehnoGreenPrimary,
+                                        selectedTextColor = PehnoGreenPrimary,
+                                        unselectedIconColor = PehnoTextSecondary,
+                                        unselectedTextColor = PehnoTextSecondary,
+                                        indicatorColor = PehnoGreenLight
+                                    ),
+                                    modifier = Modifier.testTag("tab_nav_more")
                                 )
                             }
                         }
@@ -293,9 +367,27 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToTryOn = { currentTab = PehnoMainTab.TRY_ON },
                                     onOpenSellForm = { currentTab = PehnoMainTab.SELL_DRESS }
                                 )
+                                PehnoMainTab.WISHLIST -> WishlistScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToMarketplace = { currentTab = PehnoMainTab.MARKETPLACE },
+                                    onNavigateToTryOn = { currentTab = PehnoMainTab.TRY_ON }
+                                )
                                 PehnoMainTab.SELL_DRESS -> SellDressScreen(
                                     viewModel = viewModel,
                                     onDressPublished = { currentTab = PehnoMainTab.MARKETPLACE }
+                                )
+                                PehnoMainTab.MORE -> MoreFeaturesScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToTryOn = { currentTab = PehnoMainTab.TRY_ON }
+                                )
+                            }
+
+                            // Order Dialog Overlay
+                            if (showOrderDialog && activeOrderDress != null) {
+                                OrderDressDialog(
+                                    item = activeOrderDress!!,
+                                    viewModel = viewModel,
+                                    onDismiss = { viewModel.showOrderDialog.value = false }
                                 )
                             }
                         }

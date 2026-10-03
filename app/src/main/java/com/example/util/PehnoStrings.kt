@@ -39,8 +39,10 @@ object PehnoStrings {
             
             // Bottom Tabs
             "tab_tryon" -> if (isUrdu) "ماڈل ٹرائی آن" else "Model Try-On"
-            "tab_marketplace" -> if (isUrdu) "مارکیٹ پلیس" else "Marketplace"
-            "tab_sell" -> if (isUrdu) "جوڑا بیچو" else "Sell Dress"
+            "tab_marketplace" -> if (isUrdu) "مارکیٹ" else "Marketplace"
+            "tab_wishlist" -> if (isUrdu) "پسندیدہ" else "Wishlist"
+            "tab_sell" -> if (isUrdu) "جوڑا بیچیں" else "Sell Dress"
+            "tab_more" -> if (isUrdu) "مزید" else "More"
             
             // Marketplace
             "search_hint" -> if (isUrdu) "یہاں لکھو: بلیک شیروانی، کُرتی، گلا..." else "Search: Black Sherwani, Kurti, Gala..."

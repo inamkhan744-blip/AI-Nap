@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,30 +17,54 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.FashionCatalog
 import com.example.data.model.FashionItem
+import com.example.data.model.PlacedOrder
+import com.example.data.model.TailorMeasurements
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FashionViewModel
+import com.example.util.TailorMeasurementCalculator
 
 @Composable
-fun MoreFeaturesScreen(viewModel: FashionViewModel) {
+fun MoreFeaturesScreen(
+    viewModel: FashionViewModel,
+    onNavigateToTryOn: () -> Unit = {}
+) {
     val lang by viewModel.currentLanguage.collectAsState()
+    val isUrdu = lang == "ur"
     val wishlist by viewModel.wishlistItems.collectAsState()
+    val placedOrders by viewModel.placedOrders.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+
     var selectedSection by remember { mutableStateOf("home") }
     var pushNotifications by remember { mutableStateOf(true) }
     var darkMode by remember { mutableStateOf(false) }
 
     when (selectedSection) {
-        "wishlist" -> WishlistSection(
-            items = wishlist,
+        "darzi" -> SmartDarziSection(
+            viewModel = viewModel,
+            lang = lang,
+            onBack = { selectedSection = "home" }
+        )
+        "advisor" -> WeatherFabricAdvisorSection(
+            viewModel = viewModel,
             lang = lang,
             onBack = { selectedSection = "home" },
-            onRemove = { item -> viewModel.removeFromWishlist(item.id) },
-            onTryOn = { item -> viewModel.selectedDress.value = item; selectedSection = "home" }
+            onExploreDress = {
+                onNavigateToTryOn()
+            }
+        )
+        "orders" -> OrdersHistorySection(
+            orders = placedOrders,
+            lang = lang,
+            onBack = { selectedSection = "home" }
         )
         "settings" -> SettingsSection(
             lang = lang,
@@ -53,42 +80,130 @@ fun MoreFeaturesScreen(viewModel: FashionViewModel) {
             val catalog = FashionCatalog.searchMultiStoreItems("", viewModel.formGender.value)
             MoreHome(
                 lang = lang,
-                wishlistCount = wishlist.size,
-                onWishlist = { selectedSection = "wishlist" },
+                ordersCount = placedOrders.size,
+                onDarzi = { selectedSection = "darzi" },
+                onAdvisor = { selectedSection = "advisor" },
+                onOrders = { selectedSection = "orders" },
                 onSettings = { selectedSection = "settings" },
-                onAddRecommended = { item ->
-                    viewModel.addToWishlist(item)
+                onAddRecommended = { item -> viewModel.addToWishlist(item) },
+                onTryDress = { item ->
+                    viewModel.selectedDress.value = item
+                    onNavigateToTryOn()
                 },
-                recommended = catalog.take(6)
+                recommended = catalog.take(4)
             )
         }
     }
 }
 
 @Composable
-private fun MoreHome(lang: String, wishlistCount: Int, onWishlist: () -> Unit, onSettings: () -> Unit, onAddRecommended: (FashionItem) -> Unit, recommended: List<FashionItem>) {
+private fun MoreHome(
+    lang: String,
+    ordersCount: Int,
+    onDarzi: () -> Unit,
+    onAdvisor: () -> Unit,
+    onOrders: () -> Unit,
+    onSettings: () -> Unit,
+    onAddRecommended: (FashionItem) -> Unit,
+    onTryDress: (FashionItem) -> Unit,
+    recommended: List<FashionItem>
+) {
+    val isUrdu = lang == "ur"
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(PehnoWhite),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PehnoWhite),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Text(if (lang == "ur") "مزید سہولیات" else "More Features", fontSize = 24.sp, fontWeight = FontWeight.Black, color = PehnoBlack)
-            Text(if (lang == "ur") "اپنی پسند محفوظ کریں اور ایپ کو اپنی مرضی کے مطابق بنائیں" else "Save your favourites and personalize the app", fontSize = 12.sp, color = PehnoTextSecondary)
+            Text(
+                text = if (isUrdu) "مزید سہولیات اور اسٹوڈیو" else "More Features & Studio",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                color = PehnoBlack
+            )
+            Text(
+                text = if (isUrdu) "درزی کا ناپ، فیبرک مشورہ، اور آرڈر ہسٹری" else "Smart Tailor Naap, Weather Advisor & Order Tracking",
+                fontSize = 12.sp,
+                color = PehnoTextSecondary
+            )
         }
+
+        // 4 Primary Feature Tiles
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FeatureTile(Icons.Default.Favorite, if (lang == "ur") "وشلسٹ" else "Wishlist", "$wishlistCount items", onWishlist, Modifier.weight(1f))
-                FeatureTile(Icons.Default.Settings, if (lang == "ur") "سیٹنگز" else "Settings", if (lang == "ur") "ترجیحات" else "Preferences", onSettings, Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FeatureTile(
+                        icon = Icons.Default.DesignServices,
+                        title = if (isUrdu) "درزی کا ناپ" else "Smart Darzi",
+                        subtitle = if (isUrdu) "مکمل ناپ سلپ (انچ)" else "Tailor Size Slip",
+                        onClick = onDarzi,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FeatureTile(
+                        icon = Icons.Default.WbSunny,
+                        title = if (isUrdu) "موسم اور رنگ" else "Weather & Fabric",
+                        subtitle = if (isUrdu) "شہر کا موسم اور کپڑا" else "Fabric & Color Match",
+                        onClick = onAdvisor,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FeatureTile(
+                        icon = Icons.Default.LocalShipping,
+                        title = if (isUrdu) "میرے آرڈرز" else "My Orders",
+                        subtitle = "$ordersCount ${if (isUrdu) "آرڈرز" else "Orders"}",
+                        onClick = onOrders,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FeatureTile(
+                        icon = Icons.Default.Settings,
+                        title = if (isUrdu) "سیٹنگز" else "Settings",
+                        subtitle = if (isUrdu) "ترجیحات اور زبان" else "Preferences",
+                        onClick = onSettings,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
-        item { Text(if (lang == "ur") "آپ کے لیے تجویز کردہ" else "Recommended for You", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PehnoBlack) }
+
+        // Recommended items
+        item {
+            Text(
+                text = if (isUrdu) "آپ کے لیے منتخب شدہ جوڑے" else "Handpicked Suits for You",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = PehnoBlack
+            )
+        }
+
         items(recommended, key = { it.id }) { item ->
-            Surface(shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, PehnoCardBorder), color = PehnoSurface) {
-                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, PehnoCardBorder),
+                color = PehnoSurface,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(item.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = PehnoBlack)
-                        Text("Rs. ${item.priceRs} • ${item.storeSource}", fontSize = 11.sp, color = PehnoTextSecondary)
+                        Text("Rs. ${item.priceRs} • ${item.storeSource}", fontSize = 11.sp, color = PehnoGreenPrimary, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { onTryDress(item) }) {
+                        Text(if (isUrdu) "پہنو" else "Try On", fontWeight = FontWeight.Bold)
                     }
                     IconButton(onClick = { onAddRecommended(item) }) {
                         Icon(Icons.Default.FavoriteBorder, contentDescription = "Add to wishlist", tint = PehnoGreenPrimary)
@@ -100,30 +215,411 @@ private fun MoreHome(lang: String, wishlistCount: Int, onWishlist: () -> Unit, o
 }
 
 @Composable
-private fun FeatureTile(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit, modifier: Modifier) {
-    Surface(modifier = modifier.clickable { onClick() }, shape = RoundedCornerShape(16.dp), color = PehnoGreenLight, border = BorderStroke(1.dp, PehnoGreenPrimary)) {
-        Column(Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, tint = PehnoGreenPrimary, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.height(6.dp))
-            Text(title, fontWeight = FontWeight.Bold, color = PehnoBlack)
+private fun FeatureTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier
+) {
+    Surface(
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        color = PehnoGreenLight,
+        border = BorderStroke(1.2.dp, PehnoGreenPrimary)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(icon, contentDescription = null, tint = PehnoGreenPrimary, modifier = Modifier.size(30.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(title, fontWeight = FontWeight.Bold, color = PehnoBlack, fontSize = 13.sp)
             Text(subtitle, fontSize = 11.sp, color = PehnoTextSecondary)
         }
     }
 }
 
 @Composable
-private fun WishlistSection(items: List<FashionItem>, lang: String, onBack: () -> Unit, onRemove: (FashionItem) -> Unit, onTryOn: (FashionItem) -> Unit) {
-    Column(Modifier.fillMaxSize().background(PehnoWhite)) {
-        SectionHeader(if (lang == "ur") "میری وشلسٹ" else "My Wishlist", onBack)
-        if (items.isEmpty()) {
-            EmptySection(Icons.Default.FavoriteBorder, if (lang == "ur") "وشلسٹ خالی ہے" else "Your wishlist is empty")
-        } else LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(items, key = { it.id }) { item ->
-                Surface(shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, PehnoCardBorder), color = PehnoSurface) {
-                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) { Text(item.name, fontWeight = FontWeight.Bold, color = PehnoBlack); Text("Rs. ${item.priceRs}", color = PehnoGreenPrimary, fontSize = 12.sp) }
-                        TextButton(onClick = { onTryOn(item) }) { Text(if (lang == "ur") "پہن کر دیکھیں" else "Try on") }
-                        IconButton(onClick = { onRemove(item) }) { Icon(Icons.Default.DeleteOutline, contentDescription = "Remove", tint = Color.Red) }
+private fun SmartDarziSection(
+    viewModel: FashionViewModel,
+    lang: String,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val isUrdu = lang == "ur"
+    val profile by viewModel.userProfile.collectAsState()
+    val heightFt = profile?.heightFt ?: viewModel.formHeightFt.value
+    val weightKg = profile?.weightKg ?: viewModel.formWeightKg.value
+    val gender = profile?.gender ?: viewModel.formGender.value
+
+    val measurements = remember(heightFt, weightKg, gender) {
+        TailorMeasurementCalculator.calculate(heightFt, weightKg, gender)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PehnoWhite)
+    ) {
+        SectionHeader(if (isUrdu) "درزی کا ناپ سلپ (Smart Darzi)" else "Smart Tailor Naap Slip", onBack)
+
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = PehnoGreenLight,
+                    border = BorderStroke(1.dp, PehnoGreenPrimary),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = if (isUrdu) "تجویز کردہ سائز (Standard Size)" else "Recommended Size",
+                                fontSize = 12.sp,
+                                color = PehnoTextSecondary
+                            )
+                            Text(
+                                text = measurements.standardSize,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Black,
+                                color = PehnoGreenDark
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = PehnoGreenPrimary
+                        ) {
+                            Text(
+                                text = "$heightFt ft • ${weightKg.toInt()} kg",
+                                color = PehnoWhite,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Measurement rows
+            item {
+                Text(
+                    text = if (isUrdu) "سلائی کی پیمائش (انچ میں)" else "Tailoring Measurements (Inches)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = PehnoBlack
+                )
+            }
+
+            item {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = PehnoSurface),
+                    border = BorderStroke(1.dp, PehnoCardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NaapRow(if (isUrdu) "قمیض / کُرتی لمبائی" else "Kameez Length", "${measurements.kameezLengthInches}\"")
+                        HorizontalDivider(color = PehnoCardBorder)
+                        NaapRow(if (isUrdu) "تیرہ / شولڈر" else "Shoulder (Teera)", "${measurements.shoulderInches}\"")
+                        HorizontalDivider(color = PehnoCardBorder)
+                        NaapRow(if (isUrdu) "چھاتی / چیسٹ" else "Chest (Seena)", "${measurements.chestInches}\"")
+                        HorizontalDivider(color = PehnoCardBorder)
+                        NaapRow(if (isUrdu) "کمر" else "Waist (Kamar)", "${measurements.waistInches}\"")
+                        HorizontalDivider(color = PehnoCardBorder)
+                        NaapRow(if (isUrdu) "دامن گھیرا" else "Daman Ghera", "${measurements.damanInches}\"")
+                        HorizontalDivider(color = PehnoCardBorder)
+                        NaapRow(if (isUrdu) "آستین لمبائی" else "Sleeve Length", "${measurements.sleeveLengthInches}\"")
+                        if (measurements.collarInches > 0) {
+                            HorizontalDivider(color = PehnoCardBorder)
+                            NaapRow(if (isUrdu) "بین / کالر" else "Collar / Ban", "${measurements.collarInches}\"")
+                        }
+                        HorizontalDivider(color = PehnoCardBorder)
+                        NaapRow(if (isUrdu) "شلوار / ٹراؤزر لمبائی" else "Trouser / Shalwar Length", "${measurements.trouserLengthInches}\"")
+                        HorizontalDivider(color = PehnoCardBorder)
+                        NaapRow(if (isUrdu) "پانچہ" else "Pauncha", "${measurements.paunchaInches}\"")
+                    }
+                }
+            }
+
+            // WhatsApp Button
+            item {
+                Button(
+                    onClick = {
+                        val slipText = TailorMeasurementCalculator.generateDarziSlipUrdu(
+                            customerName = profile?.name ?: "Customer",
+                            m = measurements
+                        )
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, slipText)
+                            type = "text/plain"
+                        }
+                        try {
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Darzi Naap Slip"))
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "Could not share slip", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PehnoGreenPrimary),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isUrdu) "درزی کو واٹس ایپ پر ناپ بھیجیں" else "Send Naap Slip to Tailor via WhatsApp",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NaapRow(title: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, fontSize = 13.sp, color = PehnoBlack)
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Black, color = PehnoGreenPrimary)
+    }
+}
+
+@Composable
+private fun WeatherFabricAdvisorSection(
+    viewModel: FashionViewModel,
+    lang: String,
+    onBack: () -> Unit,
+    onExploreDress: () -> Unit
+) {
+    val isUrdu = lang == "ur"
+    val profile by viewModel.userProfile.collectAsState()
+    val city = profile?.city ?: "Lahore"
+    val skinTone = profile?.skinTone ?: "Wheatish"
+    val weather = FashionCatalog.getWeatherForCity(city)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PehnoWhite)
+    ) {
+        SectionHeader(if (isUrdu) "موسم اور رنگ مشورہ" else "Fabric & Color Advisor", onBack)
+
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Weather Card
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = PehnoGreenLight,
+                    border = BorderStroke(1.dp, PehnoGreenPrimary),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PehnoGreenPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Thermostat, contentDescription = null, tint = PehnoWhite)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "${weather.city} • ${weather.tempC}°C",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                color = PehnoBlack
+                            )
+                            Text(
+                                text = weather.condition,
+                                fontSize = 12.sp,
+                                color = PehnoGreenDark,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Fabric Advice
+            item {
+                Text(
+                    text = if (isUrdu) "فیبرک کا مشورہ (Fabric Recommendation)" else "Recommended Fabric",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = PehnoBlack
+                )
+            }
+
+            item {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = PehnoSurface),
+                    border = BorderStroke(1.dp, PehnoCardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = weather.wardrobeAdvice,
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp,
+                            color = PehnoBlack
+                        )
+                    }
+                }
+            }
+
+            // Skin Tone Palette
+            item {
+                Text(
+                    text = if (isUrdu) "آپ کی رنگت کے مطابق بہترین رنگ" else "Best Color Contrasts ($skinTone Skin)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = PehnoBlack
+                )
+            }
+
+            item {
+                val recommendedColors = when (skinTone) {
+                    "Fair" -> listOf("Royal Emerald Green", "Ruby Maroon", "Navy Blue", "Deep Wine")
+                    "Wheatish" -> listOf("Monochrome Jet Black", "Mustard Gold", "Teal Blue", "Olive Green")
+                    else -> listOf("Ivory Cream", "Pastel Pink", "Sky Blue", "Rich Gold")
+                }
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = PehnoSurface,
+                    border = BorderStroke(1.dp, PehnoCardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        recommendedColors.forEach { colName ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(PehnoGreenPrimary)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(colName, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = PehnoBlack)
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Button(
+                    onClick = onExploreDress,
+                    colors = ButtonDefaults.buttonColors(containerColor = PehnoGreenPrimary),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
+                ) {
+                    Text(if (isUrdu) "اس مشورے پر جوڑا آزمائیں" else "Try Suits Matching this Advice", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OrdersHistorySection(
+    orders: List<PlacedOrder>,
+    lang: String,
+    onBack: () -> Unit
+) {
+    val isUrdu = lang == "ur"
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PehnoWhite)
+    ) {
+        SectionHeader(if (isUrdu) "میرے آرڈرز (Order History)" else "My Orders", onBack)
+
+        if (orders.isEmpty()) {
+            EmptySection(
+                Icons.Default.LocalShipping,
+                if (isUrdu) "ابھی تک کوئی آرڈر نہیں دیا گیا" else "No orders placed yet"
+            )
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(orders, key = { it.id }) { order ->
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, PehnoCardBorder),
+                        color = PehnoSurface,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = order.id,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PehnoTextSecondary
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = PehnoGreenLight
+                                ) {
+                                    Text(
+                                        text = order.status,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PehnoGreenDark,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = order.dressName,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black,
+                                color = PehnoBlack
+                            )
+                            Text(
+                                text = "Rs. ${order.priceRs} (COD) • ${order.deliveryCity}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PehnoGreenPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = order.orderDate,
+                                fontSize = 10.sp,
+                                color = PehnoTextSecondary
+                            )
+                        }
                     }
                 }
             }
@@ -132,21 +628,170 @@ private fun WishlistSection(items: List<FashionItem>, lang: String, onBack: () -
 }
 
 @Composable
-private fun SettingsSection(lang: String, pushNotifications: Boolean, darkMode: Boolean, onBack: () -> Unit, onTogglePush: (Boolean) -> Unit, onToggleDark: (Boolean) -> Unit, onLanguage: () -> Unit, onProfile: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(PehnoWhite)) {
-        SectionHeader(if (lang == "ur") "سیٹنگز" else "Settings", onBack)
-        LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item { SettingRow(Icons.Default.Person, if (lang == "ur") "پروفائل تبدیل کریں" else "Edit Profile", if (lang == "ur") "قد، وزن اور تصویر" else "Height, weight and photo", onProfile) }
-            item { SettingRow(Icons.Default.Language, if (lang == "ur") "زبان" else "Language", if (lang == "ur") "اردو / English" else "Urdu / English", onLanguage) }
-            item { SwitchRow(Icons.Default.Notifications, if (lang == "ur") "پش اطلاعات" else "Push Notifications", pushNotifications, onTogglePush) }
-            item { SwitchRow(Icons.Default.DarkMode, if (lang == "ur") "ڈارک موڈ" else "Dark Mode", darkMode, onToggleDark) }
-            item { SettingRow(Icons.AutoMirrored.Filled.HelpOutline, if (lang == "ur") "مدد اور سپورٹ" else "Help & Support", "Pehno v1.0", {}) }
-            item { SettingRow(Icons.Default.PrivacyTip, if (lang == "ur") "رازداری" else "Privacy", if (lang == "ur") "آپ کا ڈیٹا ڈیوائس پر محفوظ ہے" else "Your profile is stored on this device", {}) }
+private fun SettingsSection(
+    lang: String,
+    pushNotifications: Boolean,
+    darkMode: Boolean,
+    onBack: () -> Unit,
+    onTogglePush: (Boolean) -> Unit,
+    onToggleDark: (Boolean) -> Unit,
+    onLanguage: () -> Unit,
+    onProfile: () -> Unit
+) {
+    val context = LocalContext.current
+    val isUrdu = lang == "ur"
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PehnoWhite)
+    ) {
+        SectionHeader(if (isUrdu) "سیٹنگز" else "Settings", onBack)
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                SettingRow(
+                    Icons.Default.Person,
+                    if (isUrdu) "پروفائل تبدیل کریں" else "Edit Profile",
+                    if (isUrdu) "قد، وزن اور تصویر" else "Height, weight and photo",
+                    onProfile
+                )
+            }
+            item {
+                SettingRow(
+                    Icons.Default.Language,
+                    if (isUrdu) "زبان" else "Language",
+                    if (isUrdu) "اردو / English" else "Urdu / English",
+                    onLanguage
+                )
+            }
+            item {
+                SwitchRow(
+                    Icons.Default.Notifications,
+                    if (isUrdu) "پش اطلاعات" else "Push Notifications",
+                    pushNotifications,
+                    onTogglePush
+                )
+            }
+            item {
+                SwitchRow(
+                    Icons.Default.DarkMode,
+                    if (isUrdu) "ڈارک موڈ" else "Dark Mode",
+                    darkMode,
+                    onToggleDark
+                )
+            }
+            item {
+                SettingRow(
+                    Icons.Default.SupportAgent,
+                    if (isUrdu) "کسٹمر سپورٹ (واٹس ایپ)" else "WhatsApp Support",
+                    "+92 300 1234567",
+                    {
+                        val waUri = Uri.parse("https://api.whatsapp.com/send?phone=923001234567&text=Assalam-o-Alaikum%20Pehno%20Support")
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, waUri))
+                        } catch (_: Exception) {}
+                    }
+                )
+            }
+            item {
+                SettingRow(
+                    Icons.AutoMirrored.Filled.HelpOutline,
+                    if (isUrdu) "مدد اور سپورٹ" else "Help & About",
+                    "Pehno v1.0 • All Pakistan",
+                    {}
+                )
+            }
+            item {
+                SettingRow(
+                    Icons.Default.PrivacyTip,
+                    if (isUrdu) "رازداری" else "Privacy",
+                    if (isUrdu) "آپ کا ڈیٹا ڈیوائس پر محفوظ ہے" else "Your profile is stored on this device",
+                    {}
+                )
+            }
         }
     }
 }
 
-@Composable private fun SectionHeader(title: String, onBack: () -> Unit) { Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }; Text(title, fontSize = 20.sp, fontWeight = FontWeight.Black, color = PehnoBlack) } }
-@Composable private fun EmptySection(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) { Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { Icon(icon, null, Modifier.size(64.dp), tint = PehnoCardBorder); Spacer(Modifier.height(12.dp)); Text(text, color = PehnoTextSecondary) } }
-@Composable private fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) { Surface(Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(12.dp), color = PehnoSurface) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = PehnoGreenPrimary); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.Bold, color = PehnoBlack); Text(subtitle, fontSize = 11.sp, color = PehnoTextSecondary) }; Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = PehnoTextSecondary) } } }
-@Composable private fun SwitchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) { Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = PehnoSurface) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = PehnoGreenPrimary); Spacer(Modifier.width(12.dp)); Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = PehnoBlack); Switch(checked, onCheckedChange) } } }
+@Composable
+private fun SectionHeader(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+        }
+        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Black, color = PehnoBlack)
+    }
+}
+
+@Composable
+private fun EmptySection(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, null, Modifier.size(64.dp), tint = PehnoCardBorder)
+        Spacer(Modifier.height(12.dp))
+        Text(text, color = PehnoTextSecondary)
+    }
+}
+
+@Composable
+private fun SettingRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        color = PehnoSurface
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = PehnoGreenPrimary)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold, color = PehnoBlack)
+                Text(subtitle, fontSize = 11.sp, color = PehnoTextSecondary)
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = PehnoTextSecondary)
+        }
+    }
+}
+
+@Composable
+private fun SwitchRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = PehnoSurface
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = PehnoGreenPrimary)
+            Spacer(Modifier.width(12.dp))
+            Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = PehnoBlack)
+            Switch(checked, onCheckedChange)
+        }
+    }
+}

@@ -100,4 +100,40 @@ class ExampleRobolectricTest {
     wishlist = wishlist.filterNot { it.id == sampleItem.id }
     assert(wishlist.isEmpty())
   }
+
+  @Test
+  fun `test tailor measurement calculator logic and slip generation`() {
+    val m = com.example.util.TailorMeasurementCalculator.calculate(heightFt = 5.8f, weightKg = 72f, gender = "Male")
+    assert(m.chestInches in 34f..44f)
+    assert(m.kameezLengthInches in 36f..46f)
+    assert(m.shoulderInches in 15f..20f)
+    assert(m.trouserLengthInches in 34f..44f)
+
+    val slip = com.example.util.TailorMeasurementCalculator.generateDarziSlipUrdu(
+        customerName = "Ali Khan",
+        m = m
+    )
+    assert(slip.contains("Ali Khan"))
+    assert(slip.contains("قمیض / کُرتی لمبائی"))
+    assert(slip.contains("چھاتی / چیسٹ"))
+  }
+
+  @Test
+  fun `test placed order entity creation`() {
+    val order = com.example.data.model.PlacedOrder(
+        id = "ORD-12345",
+        dressName = "Classic Black Shalwar Kameez",
+        sellerShop = "Daraz.pk",
+        priceRs = 4500,
+        deliveryCity = "Lahore",
+        customerName = "Inam Khan",
+        customerPhone = "03001234567",
+        deliveryAddress = "Gulberg III, Lahore",
+        orderDate = "03 Oct 2026",
+        status = "Confirmed (COD)"
+    )
+    assertEquals("ORD-12345", order.id)
+    assertEquals(4500, order.priceRs)
+    assertEquals("Lahore", order.deliveryCity)
+  }
 }

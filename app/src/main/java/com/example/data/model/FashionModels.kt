@@ -82,3 +82,30 @@ data class MehndiDesign(
     val placement: String,
     val style: String
 )
+
+data class TailorMeasurements(
+    val kameezLengthInches: Float,
+    val shoulderInches: Float,
+    val chestInches: Float,
+    val waistInches: Float,
+    val damanInches: Float,
+    val sleeveLengthInches: Float,
+    val collarInches: Float,
+    val trouserLengthInches: Float,
+    val paunchaInches: Float,
+    val gender: String,
+    val standardSize: String
+)
+
+data class PlacedOrder(
+    val id: String,
+    val dressName: String,
+    val sellerShop: String,
+    val priceRs: Int,
+    val deliveryCity: String,
+    val customerName: String,
+    val customerPhone: String,
+    val deliveryAddress: String,
+    val orderDate: String,
+    val status: String
+)
