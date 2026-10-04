@@ -99,6 +99,7 @@ fun StyleAdvisorChatContent(
     val skinTone = userProfile?.skinTone ?: viewModel.formSkinTone.collectAsState().value
 
     var inputText by remember { mutableStateOf("") }
+    var activeSubTab by remember { mutableStateOf("chat") } // "chat" or "trends"
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -205,7 +206,7 @@ fun StyleAdvisorChatContent(
             }
         }
 
-        // --- User Stats Bar ---
+        // --- Sub-Tab Selector: Advisor Chat vs Live Google Trends ---
         Surface(
             color = PehnoSurface,
             modifier = Modifier.fillMaxWidth()
@@ -213,21 +214,100 @@ fun StyleAdvisorChatContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = if (isUrdu) "آپ کا پروفائل:" else "Your Profile:",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PehnoTextSecondary
-                )
-                ProfileChip(text = "$gender • ${"%.1f".format(heightFt)}ft")
-                ProfileChip(text = "${weightKg.toInt()}kg • $bodyType")
-                ProfileChip(text = skinTone)
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (activeSubTab == "chat") PehnoGreenPrimary else Color.Transparent,
+                    border = BorderStroke(1.dp, if (activeSubTab == "chat") PehnoGreenPrimary else PehnoCardBorder),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { activeSubTab = "chat" }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 7.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Chat,
+                            contentDescription = null,
+                            tint = if (activeSubTab == "chat") PehnoWhite else PehnoBlack,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isUrdu) "اسٹائل چیٹ" else "Style Chat",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (activeSubTab == "chat") PehnoWhite else PehnoBlack
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (activeSubTab == "trends") PehnoGreenPrimary else Color.Transparent,
+                    border = BorderStroke(1.dp, if (activeSubTab == "trends") PehnoGreenPrimary else PehnoCardBorder),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { activeSubTab = "trends" }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 7.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TrendingUp,
+                            contentDescription = null,
+                            tint = if (activeSubTab == "trends") PehnoWhite else PehnoBlack,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isUrdu) "🔥 گوگل ٹرینڈز 2026" else "🔥 Live Trends",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (activeSubTab == "trends") PehnoWhite else PehnoBlack
+                        )
+                    }
+                }
             }
         }
+
+        if (activeSubTab == "trends") {
+            TrendsSection(
+                viewModel = viewModel,
+                onTrendSelectedForAdvisor = {
+                    activeSubTab = "chat"
+                }
+            )
+        } else {
+            // --- User Stats Bar ---
+            Surface(
+                color = PehnoSurface,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isUrdu) "آپ کا پروفائل:" else "Your Profile:",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PehnoTextSecondary
+                    )
+                    ProfileChip(text = "$gender • ${"%.1f".format(heightFt)}ft")
+                    ProfileChip(text = "${weightKg.toInt()}kg • $bodyType")
+                    ProfileChip(text = skinTone)
+                }
+            }
 
         // --- Occasions Bar ---
         Column(
@@ -444,6 +524,7 @@ fun StyleAdvisorChatContent(
                     )
                 }
             }
+        }
         }
     }
 }

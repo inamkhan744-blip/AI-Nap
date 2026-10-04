@@ -108,6 +108,9 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
     // CameraX Virtual Try-On
     val showVirtualTryOnModal = MutableStateFlow(false)
 
+    // Pakistani Fashion Trends with Google Search Grounding
+    val fashionTrendsState = MutableStateFlow(com.example.data.model.TrendsFeedState())
+
     // Category browsing & Module selections
     val selectedCategory = MutableStateFlow(FashionCategory.DRESS_TRY_ON)
     val selectedPehnoCategory = MutableStateFlow(PehnoCategory.DRESS)
@@ -206,6 +209,7 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
             )
             repository.saveFinalLook(defaultLook)
         }
+        fetchFashionTrends()
     }
 
     override fun onCleared() {
@@ -536,6 +540,46 @@ class FashionViewModel(application: Application) : AndroidViewModel(application)
 
     fun closeVirtualTryOn() {
         showVirtualTryOnModal.value = false
+    }
+
+    fun fetchFashionTrends(category: String = "All", forceRefresh: Boolean = false) {
+        val current = fashionTrendsState.value
+        if (!forceRefresh && current.trends.isNotEmpty() && current.selectedCategory == category) return
+
+        fashionTrendsState.value = current.copy(isLoading = true, selectedCategory = category, error = null)
+        viewModelScope.launch {
+            try {
+                val result = geminiService.fetchPakistaniFashionTrendsWithGrounding(
+                    categoryFilter = category,
+                    lang = currentLanguage.value
+                )
+                val timeStr = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
+                fashionTrendsState.value = com.example.data.model.TrendsFeedState(
+                    isLoading = false,
+                    trends = result.trends,
+                    searchQueries = result.searchQueries,
+                    selectedCategory = category,
+                    lastUpdated = timeStr,
+                    error = null
+                )
+            } catch (e: Exception) {
+                fashionTrendsState.value = fashionTrendsState.value.copy(
+                    isLoading = false,
+                    error = "Failed to load trends: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun askAdvisorAboutTrend(trend: com.example.data.model.FashionTrendItem) {
+        val isUrdu = currentLanguage.value == "ur"
+        val query = if (isUrdu) {
+            "میں اس ٹرینڈ '${trend.urduTitle}' (${trend.title}) کو اپنے قد (${"%.1f".format(formHeightFt.value)}ft) اور جسم (${formBodyType.value}) پر کیسے اسٹائل کروں؟"
+        } else {
+            "How can I style the trending '${trend.title}' look for my ${"%.1f".format(formHeightFt.value)}ft height and ${formBodyType.value} body type?"
+        }
+        openStyleAdvisor(initialOccasion = trend.category)
+        sendAdvisorMessage(prompt = query, occasionOverride = trend.category)
     }
 
     fun initializeDefaultEnsemble(gender: String) {

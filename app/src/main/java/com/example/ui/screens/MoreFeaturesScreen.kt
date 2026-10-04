@@ -30,6 +30,7 @@ import com.example.data.model.FashionItem
 import com.example.data.model.PlacedOrder
 import com.example.data.model.TailorMeasurements
 import com.example.ui.components.StyleAdvisorChatContent
+import com.example.ui.components.TrendsSection
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FashionViewModel
 import com.example.util.TailorMeasurementCalculator
@@ -56,6 +57,13 @@ fun MoreFeaturesScreen(
             onSelectDressToTryOn = { item ->
                 viewModel.selectedDress.value = item
                 onNavigateToTryOn()
+            }
+        )
+        "trends" -> TrendsSection(
+            viewModel = viewModel,
+            onBack = { selectedSection = "home" },
+            onTrendSelectedForAdvisor = {
+                selectedSection = "style_chat"
             }
         )
         "darzi" -> SmartDarziSection(
@@ -92,6 +100,7 @@ fun MoreFeaturesScreen(
                 lang = lang,
                 ordersCount = placedOrders.size,
                 onStyleAdvisor = { selectedSection = "style_chat" },
+                onTrends = { selectedSection = "trends" },
                 onVirtualTryOn = { viewModel.openVirtualTryOn() },
                 onDarzi = { selectedSection = "darzi" },
                 onAdvisor = { selectedSection = "advisor" },
@@ -113,6 +122,8 @@ private fun MoreHome(
     lang: String,
     ordersCount: Int,
     onStyleAdvisor: () -> Unit,
+    onTrends: () -> Unit,
+    onVirtualTryOn: () -> Unit,
     onDarzi: () -> Unit,
     onAdvisor: () -> Unit,
     onOrders: () -> Unit,
@@ -241,17 +252,17 @@ private fun MoreHome(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     FeatureTile(
-                        icon = Icons.Default.Camera,
-                        title = if (isUrdu) "کیمرہ ٹرائی آن" else "Virtual Try-On",
-                        subtitle = if (isUrdu) "لائیو کیمرہ فٹنگ" else "CameraX Fitting",
-                        onClick = { viewModel.openVirtualTryOn() },
+                        icon = Icons.Default.TrendingUp,
+                        title = if (isUrdu) "گوگل ٹرینڈز" else "Fashion Trends",
+                        subtitle = if (isUrdu) "لائیو پاکستانی روایات" else "Grounded 2026",
+                        onClick = onTrends,
                         modifier = Modifier.weight(1f)
                     )
                     FeatureTile(
-                        icon = Icons.Default.LocalShipping,
-                        title = if (isUrdu) "میرے آرڈرز" else "My Orders",
-                        subtitle = "$ordersCount ${if (isUrdu) "آرڈرز" else "Orders"}",
-                        onClick = onOrders,
+                        icon = Icons.Default.Camera,
+                        title = if (isUrdu) "کیمرہ ٹرائی آن" else "Virtual Try-On",
+                        subtitle = if (isUrdu) "لائیو کیمرہ فٹنگ" else "CameraX Fitting",
+                        onClick = onVirtualTryOn,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -260,6 +271,13 @@ private fun MoreHome(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    FeatureTile(
+                        icon = Icons.Default.LocalShipping,
+                        title = if (isUrdu) "میرے آرڈرز" else "My Orders",
+                        subtitle = "$ordersCount ${if (isUrdu) "آرڈرز" else "Orders"}",
+                        onClick = onOrders,
+                        modifier = Modifier.weight(1f)
+                    )
                     FeatureTile(
                         icon = Icons.Default.Settings,
                         title = if (isUrdu) "سیٹنگز" else "Settings",

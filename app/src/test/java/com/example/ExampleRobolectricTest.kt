@@ -164,4 +164,29 @@ class ExampleRobolectricTest {
     )
     assertEquals(com.example.data.model.MessageSender.ADVISOR, advisorMsg.sender)
   }
+
+  @Test
+  fun `test fashion trend items and search grounding sources`() {
+    val source = com.example.data.model.GroundingSource(
+        title = "Dawn Images - Fashion 2026",
+        url = "https://images.dawn.com/lifestyle/fashion"
+    )
+    val trend = com.example.data.model.FashionTrendItem(
+        title = "Pastel Zardozi Lehengas",
+        urduTitle = "پیسٹل زردوزی لہنگے",
+        category = "Bridal & Wedding",
+        summary = "Pastel tones with fine silver zardozi embroidery dominating 2026 weddings.",
+        keyElements = listOf("Scalloped Borders", "Farshi Gharara", "Organza Dupatta"),
+        trendingColors = listOf("Powder Pink", "Sage Mint"),
+        seasonTag = "Wedding 2026",
+        sources = listOf(source)
+    )
+
+    assertEquals("Pastel Zardozi Lehengas", trend.title)
+    assertEquals("Bridal & Wedding", trend.category)
+    assertEquals(1, trend.sources.size)
+    assertEquals("https://images.dawn.com/lifestyle/fashion", trend.sources.first().url)
+    assert(trend.keyElements.contains("Scalloped Borders"))
+    assert(trend.trendingColors.contains("Powder Pink"))
+  }
 }
